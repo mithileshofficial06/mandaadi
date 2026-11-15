@@ -84,6 +84,15 @@ body { font-family: var(--f-ui); color: var(--foam); -webkit-tap-highlight-color
 .chip--gust { background: #0a3d4a; border: 1px solid #5fc6d6; color: #bff1f7; }
 .chip--lull { background: rgba(244, 241, 234, 0.88); color: var(--ink); }
 
+.place { font: 700 17px/1 var(--f-num); letter-spacing: 0.06em; text-transform: uppercase; color: #fff; background: rgba(12,28,36,0.75); border: 1px solid var(--panel-line); padding: 4px 8px; border-radius: 6px; }
+.fleet { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 3px; text-align: left; }
+.fleet li { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: baseline; padding: 4px 8px; border-radius: 6px; font-size: 15px; }
+.fleet li span { font: 700 15px/1 var(--f-num); color: var(--text-dim); }
+.fleet li b { font-weight: 700; }
+.fleet li em { font: 600 16px/1 var(--f-num); font-style: normal; color: var(--text-dim); }
+.fleet li.is-me { background: rgba(255,107,26,0.22); }
+.fleet li.is-me em { color: #fff; }
+
 /* ---------- next-mark marker ---------- */
 .marker { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform; }
 .marker__tag { position: absolute; left: 0; bottom: 14px; transform: translateX(-50%); display: flex; align-items: baseline; gap: 6px; padding: 5px 10px; border-radius: 999px; background: rgba(12, 28, 36, 0.8); border: 1px solid rgba(255, 107, 26, 0.8); font: 700 15px/1 var(--f-num); letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3); }

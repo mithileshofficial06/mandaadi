@@ -260,6 +260,7 @@ function Instruments() {
           <b>{hud.speed.value.toFixed(1)}</b> kn
         </div>
         <div class={`status status--${st}`}>{STATUS[st]}</div>
+        {hud.place.value && <div class="place">{hud.place.value}</div>}
         {hud.gust.value >= 6 && <div class="chip chip--gust">Gust +{hud.gust.value}% wind</div>}
         {hud.gust.value <= -6 && <div class="chip chip--lull">Lull {hud.gust.value}% wind</div>}
       </div>
@@ -360,7 +361,7 @@ function Finish(props: HudProps) {
   const sideName = (s: number) => (s < 0 ? 'left' : s > 0 ? 'right' : 'up the middle');
   return (
     <div class="finish" role="dialog" aria-labelledby="finish-time">
-      <p class="finish__label">Finished</p>
+      <p class="finish__label">Finished {res.place}</p>
       <p id="finish-time" class="finish__time" aria-label={fmtTicks(res.ticks)}>
         <CountUp ticks={res.ticks} />
       </p>
@@ -385,6 +386,15 @@ function Finish(props: HudProps) {
           <span class="lg lg--hm">Harbourmaster went {sideName(theirs)}</span>
         </div>
       </div>
+      <ol class="fleet">
+        {res.fleet.slice(0, 5).map((f, i) => (
+          <li class={f.me ? 'is-me' : ''}>
+            <span>{i + 1}</span>
+            <b>{f.name}</b>
+            <em>{f.ticks === null ? 'still sailing' : fmtTicks(f.ticks)}</em>
+          </li>
+        ))}
+      </ol>
       <dl class="finish__stats">
         <div>
           <dt>Tacks</dt>

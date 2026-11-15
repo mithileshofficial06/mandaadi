@@ -16,7 +16,8 @@ import type { Course } from '../../shared/core/course';
 import { GUN_TICK, Q10, TICK_HZ, UM_PER_M } from '../../shared/core/fixed';
 import { InputRecorder } from '../../shared/core/inputs';
 import { Pilot } from '../../shared/core/pilot';
-import { ANG, signedA } from '../../shared/core/trig';
+import { ANG, deg, signedA } from '../../shared/core/trig';
+import type { Wake } from '../three/effects';
 import { puffCentre } from '../../shared/core/wind';
 import { sfx } from '../app/audio';
 import { SteerInput } from '../input/steer';
@@ -44,6 +45,10 @@ function sunFor(windFromRad: number): Vector3 {
 }
 
 type Snap = { x: number; y: number; h: number };
+type Bot = { name: string; s: BoatState; prev: Snap; pilot: Pilot; model: BoatModel; wake: Wake };
+/** Rival crews, named after fishing villages on the Ramanathapuram coast. They are bots, and say so. */
+const VILLAGES = ['Pamban', 'Mandapam', 'Kilakarai', 'Thondi', 'Devipattinam', 'Erwadi', 'Valinokkam'];
+const ordinal = (n: number) => `${n}${n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th'}`;
 
 const n2 = (a: number, b: number): [number, number] => [a / Math.hypot(a, b), b / Math.hypot(a, b)];
 /** Must match the two swell waves in water.ts: direction (xz), wavelength, amplitude. */
@@ -110,6 +115,8 @@ export class Race {
   private sky: Sky;
   private birds: Birds;
   private ring: WindRing;
+  private bots: Bot[] = [];
+  private place = 0;
   private mini: Minimap | null = null;
   private shoals: Shoals | null = null;
   private runTime = 0;
@@ -202,6 +209,22 @@ export class Race {
     // The ghost starts a boat-length to leeward so the two never sit on top of each other.
     this.ghost.x += 7 * UM_PER_M;
     this.ghostPrev = { x: this.ghost.x, y: this.ghost.y, h: this.ghost.h };
+    {
+      const ga = course.start.a;
+      const gb = course.start.b;
+      const len = Math.hypot(gb.x - ga.x, gb.y - ga.y) || 1;
+      VILLAGES.forEach((name, i) => {
+        const s = initialState(course);
+        const off = (i % 2 ? 1 : -1) * (9 + Math.floor(i / 2) * 7);
+        s.x += Math.round(((off * (gb.x - ga.x)) / len) * UM_PER_M);
+        s.y += Math.round(((off * (gb.y - ga.y)) / len) * UM_PER_M);
+        const pilot = new Pilot(course, { up: deg(46 + ((i * 3) % 9)), down: deg(144 + ((i * 5) % 12)), overstand: deg((i * 2) % 8), firstSide: i % 2 ? 1 : -1 });
+        const model = createBoat({ ...LIVERIES[(i + 2) % LIVERIES.length]!, sailNo: String(11 + i * 13) });
+        const wake = createWake({ life: 8, opacity: 0.6 });
+        this.scene.add(model.root, wake.mesh);
+        this.bots.push({ name, s, prev: { x: s.x, y: s.y, h: s.h }, pilot, model, wake });
+      });
+    }
     this.pilot = new Pilot(course, { up: Math.round((50 * ANG) / 360), down: Math.round((150 * ANG) / 360), overstand: 12, firstSide: -1 });
 
     if (new URLSearchParams(location.search).get('autopilot')) this.auto = new Pilot(course);
@@ -387,8 +410,14 @@ export class Race {
   private tickSim(stepDt: number): void {
     const s = this.s;
     if (s.phase === 'finished' || s.phase === 'dnf') {
-      // keep the ghost sailing for the view
+      // keep the fleet sailing; results fill in as they finish
       this.stepGhost();
+      const r = hud.result.value;
+      if (r && this.ghost.tick % 15 === 0) {
+        const fin = (b: BoatState) => (b.phase === 'finished' ? raceTicks(b) : null);
+        const fleet = [{ name: 'You', ticks: r.ticks, me: true }, { name: 'Harbourmaster', ticks: fin(this.ghost) }, ...this.bots.map((b) => ({ name: b.name, ticks: fin(b.s) }))].sort((p, q) => (p.ticks ?? 1e9) - (q.ticks ?? 1e9));
+        hud.result.value = { ...r, fleet, place: `${ordinal(fleet.findIndex((f) => f.me) + 1)} of ${fleet.length}` };
+      }
       return;
     }
     this.prev.x = s.x;
@@ -399,6 +428,7 @@ export class Race {
     step(s, this.course, input);
     this.stepGhost();
     this.handleEvents(s);
+    if (s.tick % 6 === 0 && s.tick > GUN_TICK) this.updatePlace(s);
 
     const vm = vmax(this.course);
     if (s.tick % 6 === 0) {
@@ -484,6 +514,12 @@ export class Race {
     this.ghostPrev.y = g.y;
     this.ghostPrev.h = g.h;
     if (g.phase === 'prestart' || g.phase === 'racing') step(g, this.course, this.pilot.next(g));
+    for (const b of this.bots) {
+      b.prev.x = b.s.x;
+      b.prev.y = b.s.y;
+      b.prev.h = b.s.h;
+      if (b.s.phase === 'prestart' || b.s.phase === 'racing') step(b.s, this.course, b.pilot.next(b.s));
+    }
   }
 
   private handleEvents(s: BoatState): void {
@@ -542,6 +578,12 @@ export class Race {
     if (e & EV.FINISH) this.finish(s);
   }
 
+  private finishPlace(s: BoatState): string {
+    const all = [this.ghost, ...this.bots.map((b) => b.s)];
+    const ahead = all.filter((b) => b.phase === 'finished' && raceTicks(b) < raceTicks(s)).length;
+    return `${ordinal(ahead + 1)} of ${all.length + 1}`;
+  }
+
   private finish(s: BoatState): void {
     sfx.finish();
     this.spray.emit(30, s.x / UM_PER_M, s.y / UM_PER_M, s.h * RAD, (s.v * TICK_HZ) / UM_PER_M, 1.3);
@@ -561,6 +603,12 @@ export class Race {
       route: this.route.slice(),
       ghostRoute: this.ghostRoute.slice(),
       topSpeed: this.topSpeed,
+      place: this.finishPlace(s),
+      fleet: [
+        { name: 'You', ticks, me: true },
+        { name: 'Harbourmaster', ticks: g.phase === 'finished' ? raceTicks(g) : null },
+        ...this.bots.map((b) => ({ name: b.name, ticks: b.s.phase === 'finished' ? raceTicks(b.s) : null })),
+      ].sort((p, q) => (p.ticks ?? 1e9) - (q.ticks ?? 1e9)),
     };
     hud.toast.value = null;
     hud.phase.value = 'finished';
@@ -568,6 +616,8 @@ export class Race {
     hud.banner.value = null;
     this.input.enabled = false;
     sfx.stopMotion();
+    const mm = document.getElementById('minimap');
+    if (mm) mm.hidden = true;
     this.rig.setOrbit(true, s.h * RAD + 2.2);
     this.onFinish?.(this.rec.log, s);
   }
@@ -661,6 +711,22 @@ export class Race {
     const gl = Math.abs(gtwa) < NO_GO * RAD ? 1 : 0;
     const gs = swellSlope(gx, gy, gh, t);
     this.ghostBoat.pose({ twa: gtwa, speed: Math.max(0, g.v / vm), power: 0.8, luff: gl, steer: 0, time: t + 1.3, heel: 0.1 * (1 - gl), pitch: gs.pitch, roll: gs.roll });
+    for (const bt of this.bots) {
+      const q = bt.s;
+      const qx = (bt.prev.x + (q.x - bt.prev.x) * a) / UM_PER_M;
+      const qy = (bt.prev.y + (q.y - bt.prev.y) * a) / UM_PER_M;
+      const qh = lerpA(bt.prev.h, q.h) * RAD;
+      const qt = signedA(q.h - q.windFrom) * RAD;
+      const ql = Math.abs(qt) < NO_GO * RAD ? 1 : 0;
+      const qs = swellSlope(qx, qy, qh, t);
+      bt.model.root.position.set(qx, 0, -qy);
+      bt.model.root.rotation.y = -qh;
+      // pose boats near the camera every frame, far ones every 4th frame
+      const near = Math.hypot(qx - bx, qy - by) < 90;
+      if (near || (Math.floor(t * 60) & 3) === 0) bt.model.pose({ twa: qt, speed: Math.max(0, q.v / vm), power: 0.8, luff: ql, steer: 0, time: t + qx * 0.1, heel: 0.11 * (1 - ql), pitch: qs.pitch, roll: qs.roll });
+      if (this.wakeT === 0 && dt > 0) bt.wake.push(qx - Math.sin(qh) * 3.1, qy - Math.cos(qh) * 3.1, qh, Math.max(0, q.v / vm), t);
+      bt.wake.update(t);
+    }
     const d = Math.hypot(gx - bx, gy - by);
     this.ghostBoat.setOpacity(Math.min(0.55, Math.max(0.12, (d - 4) / 18)));
 
@@ -744,8 +810,28 @@ export class Race {
     }
   }
 
+  /** Race progress for ranking: finished boats first (by time), then leg, then distance to go. */
+  private progress(b: BoatState): number {
+    if (b.phase === 'finished') return 1e12 - raceTicks(b);
+    const t = this.nextTarget(b);
+    const d = Math.hypot(t.x - b.x / UM_PER_M, t.y - b.y / UM_PER_M);
+    return (b.started ? b.leg + 1 : 0) * 1e6 - d;
+  }
+
+  private updatePlace(s: BoatState): void {
+    const me = this.progress(s);
+    const all = [this.ghost, ...this.bots.map((b) => b.s)];
+    const place = 1 + all.filter((b) => this.progress(b) > me).length;
+    if (this.place && place < this.place && s.phase === 'racing') {
+      this.toast(`Up to ${ordinal(place)}!`, 'good', place === 1 ? 'You lead the fleet' : `of ${all.length + 1} boats`, 1500);
+      sfx.gust();
+    }
+    this.place = place;
+    hud.place.value = `${ordinal(place)} of ${all.length + 1}`;
+  }
+
   /** Positions of the other boats on the water (course metres). */
   private otherBoats(): Array<{ x: number; y: number }> {
-    return [{ x: this.ghost.x / UM_PER_M, y: this.ghost.y / UM_PER_M }];
+    return [this.ghost, ...this.bots.map((b) => b.s)].map((b) => ({ x: b.x / UM_PER_M, y: b.y / UM_PER_M }));
   }
 }

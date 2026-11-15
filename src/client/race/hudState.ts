@@ -11,6 +11,8 @@ export type RaceResult = {
   route: RouteXY;
   ghostRoute: RouteXY;
   topSpeed: number;
+  place: string;
+  fleet: Array<{ name: string; ticks: number | null; me?: boolean }>;
 };
 
 export type SailStatus = 'irons' | 'upwind' | 'reach' | 'downwind' | 'run';
@@ -40,6 +42,7 @@ export const hud = {
   toast: signal<Toast | null>(null),
   paused: signal(false),
   go: signal(false),
+  place: signal(''),
   /** 0 no tack in progress, 1 tacking (tap soon), 2 tap now for a perfect tack. */
   tackWindow: signal(0),
   camMode: signal<'chase' | 'low' | 'top'>('chase'),
