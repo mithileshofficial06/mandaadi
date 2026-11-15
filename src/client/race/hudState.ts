@@ -66,6 +66,8 @@ export const hud = {
   levelTop: signal<{ name: string; ticks: number } | null>(null),
   /** Start card: boat paint sheet open. */
   paintOpen: signal(false),
+  /** Asking "leave the race?" (race paused). */
+  exitAsk: signal(false),
   schoolResult: signal<SchoolFinishResponse | { error: string } | 'checking' | null>(null),
 };
 

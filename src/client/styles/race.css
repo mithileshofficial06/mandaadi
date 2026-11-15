@@ -240,3 +240,12 @@ body { font-family: var(--f-ui); color: var(--foam); -webkit-tap-highlight-color
   .startcard__wind, .startcard__hint { display: none; }
   .startcard__title { font-size: 30px; }
 }
+
+.startcard { position: relative; }
+.cardexit { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 34px; height: 34px; min-height: 0; padding: 0; border: 0; border-radius: 50%; background: rgba(255,255,255,0.08); color: var(--text-dim); cursor: pointer; pointer-events: auto; z-index: 2; }
+.cardexit svg { width: 18px; height: 18px; }
+.startcard .tabs { margin-right: 40px; }
+.exitask { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(4,20,28,0.55); pointer-events: auto; z-index: 50; }
+.exitask__card { width: min(340px, calc(100% - 32px)); padding: 18px; border-radius: 16px; background: var(--panel, #0f2630); border: 1px solid var(--panel-line); }
+.exitask__title { margin: 0 0 6px; font: 700 26px/1.1 var(--f-num); letter-spacing: 0.02em; }
+.exitask__sub { margin: 0 0 14px; font: 400 14px/1.4 system-ui, sans-serif; color: var(--text-dim); }

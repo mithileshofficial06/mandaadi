@@ -101,10 +101,16 @@ const STATUS: Record<SailStatus, string> = {
 const compassName = (a: number) => COMPASS[Math.round(((a % 4096) / 4096) * 8) % 8]!;
 
 const CAM = { drive: 'Behind', chase: 'High', low: 'Low', top: 'Top' } as const;
-type IconName = 'sound' | 'mute' | 'map' | 'boat' | 'help' | 'cam';
+type IconName = 'sound' | 'mute' | 'map' | 'boat' | 'help' | 'cam' | 'exit';
 function Icon({ name }: { name: IconName }) {
   const p = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' } as const;
   switch (name) {
+    case 'exit':
+      return (
+        <svg {...p} aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      );
     case 'sound':
       return (
         <svg {...p} aria-hidden="true">
@@ -231,6 +237,10 @@ export type HudProps = {
   onHelp: () => void;
   onCloseGuide: () => void;
   onRestart: () => void;
+  /** Close the game and go back to the post (asks first during a race). */
+  onExit: (e: MouseEvent) => void;
+  onExitConfirm: (e: MouseEvent) => void;
+  onExitCancel: () => void;
 };
 
 export function Hud(props: HudProps) {
@@ -269,10 +279,35 @@ export function Hud(props: HudProps) {
     </div>
   );
 
+  const cardExit = (
+    <button class="cardexit" onClick={(e) => props.onExit(e as unknown as MouseEvent)} aria-label="Exit the game">
+      <Icon name="exit" />
+    </button>
+  );
+  const exitAsk = hud.exitAsk.value ? (
+    <div class="exitask" role="dialog" aria-labelledby="exitask-title">
+      <div class="exitask__card">
+        <p id="exitask-title" class="exitask__title">
+          Leave the race?
+        </p>
+        <p class="exitask__sub">{hud.ranked.value.kind === 'ranked' ? 'In the first 10 seconds your attempt is given back. After that it counts as used.' : 'Your progress on this run is lost.'}</p>
+        <div class="startcard__row">
+          <button class="btn btn--ghost btn--grow" onClick={props.onExitCancel}>
+            Keep racing
+          </button>
+          <button class="btn btn--primary btn--grow" onClick={(e) => props.onExitConfirm(e as unknown as MouseEvent)}>
+            Exit
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   if (phase === 'ready' && tab === 'school-list') {
     return (
       <div class="hud hud--ready">
         <section class="startcard startcard--school" aria-label="Sailing School">
+          {cardExit}
           {tabs}
           <p class="startcard__hint">Six stages, five levels each. Beat the Harbourmaster for three stars. Open the next stage with 6 stars, or by finishing every level.</p>
           {SchoolList(props.onPickLevel)}
@@ -286,6 +321,7 @@ export function Hud(props: HudProps) {
     return (
       <div class="hud hud--ready">
         <section class="startcard" aria-labelledby="race-title">
+          {cardExit}
           {tabs}
           <p class="startcard__day">
             {lvl ? (
@@ -362,6 +398,7 @@ export function Hud(props: HudProps) {
       {phase !== 'finished' && Controls(props)}
       {phase === 'finished' && Finish(props)}
       {guide}
+      {exitAsk}
     </div>
   );
 }
@@ -392,6 +429,9 @@ function TopBar(flash: boolean, toggleSound: () => void, props: HudProps) {
             <small>{CAM[hud.camMode.value]}</small>
           </button>
         )}
+        <button class="iconbtn" onClick={(e) => props.onExit(e as unknown as MouseEvent)} aria-label="Exit the game">
+          <Icon name="exit" />
+        </button>
       </div>
     </header>
   );

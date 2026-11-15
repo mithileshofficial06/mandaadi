@@ -6,6 +6,7 @@ import { SANDBAR_SPRINT } from '../../shared/content/courses';
 import { SCHOOL, courseById, dailyCourse } from '../../shared/content/school';
 import type { Course } from '../../shared/core/course';
 import { ApiFailure, api } from '../app/api';
+import { exitExpandedMode, getWebViewMode } from '@devvit/web/client';
 import { type InputLog, decodeInputs, encodeInputs } from '../../shared/core/inputs';
 import { MEDAL_NAME } from '../../shared/core/par';
 import { sfx } from '../app/audio';
@@ -235,6 +236,21 @@ function resetHud(): void {
   hud.schoolResult.value = null;
 }
 
+/** Close the game and go back to the post. An early exit from a ranked race gives the attempt back. */
+function leave(e: MouseEvent): void {
+  if (token) {
+    void api.abandon(token).catch(() => undefined);
+    token = null;
+  }
+  sfx.stopMotion();
+  try {
+    if (getWebViewMode() === 'expanded') exitExpandedMode(e);
+    else history.back();
+  } catch {
+    history.back();
+  }
+}
+
 /** Show a course on the start card (idle boat, orbit camera). */
 let pick: (c: Course) => void = () => undefined;
 
@@ -352,6 +368,20 @@ function App() {
         store.set(GUIDE_KEY, '1');
         if (guide === 'paused') race?.resume();
         setGuide('closed');
+      }}
+      onExit={(e) => {
+        if (race?.isRacing) {
+          race.pause();
+          hud.exitAsk.value = true;
+        } else leave(e);
+      }}
+      onExitCancel={() => {
+        hud.exitAsk.value = false;
+        race?.resume();
+      }}
+      onExitConfirm={(e) => {
+        hud.exitAsk.value = false;
+        leave(e);
       }}
       onRestart={() => {
         // A restart in the first seconds gives the attempt back.
