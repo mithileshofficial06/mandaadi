@@ -26,9 +26,10 @@ const k = {
   att: (date: string, uid: string) => `att:${date}:${uid}`,
   finished: (uid: string) => `fin:${uid}`,
   tok: (t: string) => `tok:${t}`,
-  lb: (date: string) => `lb:${date}`,
-  runs: (date: string) => `run:${date}`,
-  routes: (date: string) => `rt:${date}`,
+  // Boards are per date and course, so a course change never mixes times or ghosts.
+  lb: (date: string) => `lb:${date}:${courseFor(date).id}`,
+  runs: (date: string) => `run:${date}:${courseFor(date).id}`,
+  routes: (date: string) => `rt:${date}:${courseFor(date).id}`,
   shared: (date: string, uid: string) => `shared:${date}:${uid}`,
   livery: (uid: string) => `livery:${uid}`,
   school: (uid: string) => `school:${uid}`,
