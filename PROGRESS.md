@@ -82,3 +82,11 @@ Then tier B (Reddit features). Avoid: speed boosts / power-ups (break "same wind
 - School: stars 3 = beat par, 2 = within 12%, 1 = finish; levels unlock in order, a stage needs 8 stars from the previous one. Progress: server hash `school:<uid>` (re-sailed on the server), merged with localStorage for logged-out play.
 - Boards/runs/routes keyed by date AND course id.
 - After any physics change: `npx tsx tools/gen-courses.ts` (the content test fails until pars are current).
+
+## Rating fixes (2026-11-15, late) - live as v0.0.6
+- Courses: School pars rise level by level inside each stage (per-level windows); dailies need a real side decision (autopilot left vs right differ >= 1.5 s) and no lookalikes (same type + marks + par within 4 s). Review sheets: `Daily_Courses_Sheet.png`, `School_Courses_Sheet.png` (harness page `/harness/sheet.html[?set=school]`).
+- School social: fastest redditor per level (`slb:`/`srun:` keys, physics-versioned) shown on the level card and sailed as a ghost; flair = School stars + last Harbourmaster day; board rows show School stars.
+- Stage gate 6 stars, or finish every level of the previous stage.
+- Anti-cheat: runs more than 20% under par are not counted. Real bot detection needs human input logs from testers first (not built).
+- Restart within 13 s of the ticket (3 s countdown + 10 s) refunds the attempt (`/api/race/abandon`); pause menu says so.
+- Start card: paint behind a "Your boat" toggle; short screens (< 720 px) hide the wind/hint lines and shrink the chart.
