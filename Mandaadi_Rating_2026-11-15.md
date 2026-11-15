@@ -67,3 +67,32 @@ Runs on Reddit; server-verified times; attempts; board; medals and flair; real-p
 
 ## Verdict
 **Build on.** The game is now a real Reddit daily game, not a demo. What keeps it at 6.5 is not code but people (empty board) and the weekly repeat. Fix #2 (a day of work), then spend the rest on #1 and #3.
+
+---
+
+# Re-rating after Sailing School + 30-day cycle (2026-11-15, late, v0.0.5)
+
+| Criterion | Tier B | Now | Ceiling |
+|---|---|---|---|
+| Delightful UX | 7 | 7.5 | 8.5 |
+| Polish | 7.5 | 7.5 | 8.5 |
+| Reddit-y | 6.5 | 6.5 | 8 |
+| Daily Content | 6.5 | 7.5 | 8 |
+| **Overall** | **6.5** | **7 / 10** | **8-8.5 / 10** |
+
+## What moved it
+The weekly repeat is gone: 30 different daily courses, more complex (1-3 marks, islands, currents, shifts). Sailing School gives 30 levels of progression with stars and gates, plus a way to learn before racing for rank.
+
+## Findings, ranked
+| # | Severity | Finding | Status | Fix |
+|---|---|---|---|---|
+| 1 | Critical | Still no real players: the board, ghosts and wake map are empty. | Confirmed | Get 20-50 sailors into the dev sub for several days. |
+| 2 | High | No real phone test; no full daily race or School level played through the UI on Reddit. | Confirmed | Phone run plus the 19 Nov testers. |
+| 3 | Medium | Generated courses are checked for sailability, not fun. Some are samey (Harbour Mouth 1-3 to 1-5 all have about a 61 s par). | Confirmed | Play the 30 dailies, regenerate the dull seeds, spread the School pars. |
+| 4 | Medium | The School is single-player, so it adds nothing to Reddit-y. | Confirmed | School stars in user flair, and "fastest redditor" per level. |
+| 5 | Medium | The 8-star stage gate may stall casual players at stage 2. | Suspected | Tune from tester data (6-7 stars if needed). |
+| 6 | Medium | Scripted autopilot runs can reach the board; restarting burns an attempt. | Confirmed | As before. |
+| 7 | Low | The start card is crowded on small phones (tabs, paint, status, chart). | Suspected | Move the paint into a collapsible row. |
+
+## Verdict
+**Build on.** The content side is now solid for a daily game. The score is capped by having no players and no real-device testing, not by features. Stop adding features: test, tune courses, fill the subreddit.
