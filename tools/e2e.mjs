@@ -23,7 +23,7 @@ while (Date.now() - t0 < 140000) {
 }
 await page.waitForTimeout(800);
 await page.screenshot({ path: `${out}/finish.png` });
-const time = await page.locator('.finish__time').textContent().catch(() => null);
+const time = await page.locator('.finish__time').getAttribute('aria-label').catch(() => null);
 console.log('finish time', time, 'errors', errors.length ? errors : 'none');
 await browser.close();
 if (!time) process.exit(1);

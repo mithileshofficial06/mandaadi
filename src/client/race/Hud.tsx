@@ -108,6 +108,29 @@ function CourseChart(props: {
   return <canvas ref={ref} class={props.class ?? 'chart'} aria-hidden="true" />;
 }
 
+/** The finish time counting up to its value (no signals: safe as a child component). */
+function CountUp(props: { ticks: number }) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) {
+      setShown(props.ticks);
+      return;
+    }
+    let raf = 0;
+    const t0 = performance.now() + 450;
+    const frame = (now: number) => {
+      const k = Math.min(1, Math.max(0, (now - t0) / 1100));
+      const e = 1 - Math.pow(1 - k, 3);
+      setShown(Math.round(props.ticks * e));
+      if (k < 1) raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [props.ticks]);
+  return <>{fmtTicks(shown)}</>;
+}
+
 export type HudProps = {
   course: Course;
   day: number;
@@ -264,6 +287,11 @@ function Messages(phase: string) {
           <small>Get ready</small>
         </div>
       )}
+      {hud.go.value && (
+        <div class="countdown countdown--go" aria-live="assertive">
+          <span>Go</span>
+        </div>
+      )}
       {hud.banner.value && (
         <div class="banner" role="alert">
           {hud.banner.value}
@@ -316,8 +344,8 @@ function Finish(props: HudProps) {
   return (
     <div class="finish" role="dialog" aria-labelledby="finish-time">
       <p class="finish__label">Finished</p>
-      <p id="finish-time" class="finish__time">
-        {fmtTicks(res.ticks)}
+      <p id="finish-time" class="finish__time" aria-label={fmtTicks(res.ticks)}>
+        <CountUp ticks={res.ticks} />
       </p>
       {res.vsGhost !== null ? (
         <p class={`finish__vs ${res.vsGhost <= 0 ? 'is-win' : ''}`}>

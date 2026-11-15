@@ -29,6 +29,7 @@ import { QualityScaler } from '../three/renderer';
 import { createWater } from '../three/water';
 import { type Sky, createSky } from '../three/sky';
 import { type Birds, createBirds } from '../three/birds';
+import { type Spray, createSpray } from '../three/spray';
 import { landOf } from '../three/world';
 import { fmtTicks, hud } from './hudState';
 
@@ -41,6 +42,28 @@ function sunFor(windFromRad: number): Vector3 {
 }
 
 type Snap = { x: number; y: number; h: number };
+
+const n2 = (a: number, b: number): [number, number] => [a / Math.hypot(a, b), b / Math.hypot(a, b)];
+/** Must match the two swell waves in water.ts: direction (xz), wavelength, amplitude. */
+const SWELL: Array<[number, number, number, number]> = [
+  [...n2(0.86, 0.5), 38, 0.16],
+  [...n2(0.7, 0.71), 23, 0.09],
+];
+
+/** Slope of the water shader's swell at a point, as pitch and roll for a boat heading h. */
+function swellSlope(x: number, y: number, h: number, t: number): { pitch: number; roll: number } {
+  let gx = 0;
+  let gz = 0;
+  for (const [dx, dz, L, A] of SWELL) {
+    const k = (2 * Math.PI) / L;
+    const c = Math.sqrt(9.81 / k);
+    const s = A * k * Math.cos(k * (dx * x + dz * -y - c * t));
+    gx += s * dx;
+    gz += s * dz;
+  }
+  // forward in xz is (sin h, -cos h); right is (cos h, sin h)
+  return { pitch: (gx * Math.sin(h) - gz * Math.cos(h)) * 1.4, roll: (gx * Math.cos(h) + gz * Math.sin(h)) * 1.4 };
+}
 /** Start the intro orbit looking at the boat's bow quarter. */
 const s0Angle = (heading: number) => heading + 2.4;
 
@@ -84,6 +107,10 @@ export class Race {
   private fog: Fog;
   private sky: Sky;
   private birds: Birds;
+  private spray: Spray;
+  private sprayAcc = 0;
+  private lastV = 0;
+  private surge = 0;
   private wakeT = 0;
   private coneTime = 0;
   private promptStage = 0;
@@ -134,6 +161,8 @@ export class Race {
     const isl = course.islands.map((i) => i.parts[0]!).map((p) => ({ x: p.x, y: p.y }));
     this.birds = createBirds([...isl, { x: -100, y: 120 }, ...(course.marks[0] ? [course.marks[0]] : [])]);
     this.scene.add(this.birds.mesh);
+    this.spray = createSpray();
+    this.scene.add(this.spray.points);
     this.scene.add(this.water.mesh);
     this.land = createLand(course, windToRad, SUN);
     this.scene.add(this.land.group);
@@ -413,10 +442,13 @@ export class Race {
       sfx.gun();
       vibrate(60);
       hud.countdown.value = 0;
+      hud.go.value = true;
+      window.setTimeout(() => (hud.go.value = false), 900);
     }
     if (e & EV.TACK || e & EV.GYBE) {
       sfx.tack();
       vibrate(25);
+      this.spray.emit(10, s.x / UM_PER_M, s.y / UM_PER_M, s.h * RAD, (s.v * TICK_HZ) / UM_PER_M, 0.8);
     }
     if (e & EV.ROUND) {
       sfx.bell();
@@ -425,6 +457,7 @@ export class Race {
       this.toast(`Mark ${s.leg} rounded · ${fmtTicks(s.tick - GUN_TICK + s.penalty)}`, 'good', more ? `On to mark ${s.leg + 1}` : 'Now race back through the line', 3200);
       this.marks.setActive(s.leg, true);
       this.marks.setLaylines(this.opts.laylines, s.windFrom * RAD);
+      this.marks.pulse(s.leg - 1);
     }
     if (e & EV.START) {
       this.marks.setActive(s.leg, true);
@@ -441,12 +474,14 @@ export class Race {
       this.rig.bump(0.8);
       hud.penaltyFlash.value = hud.penaltyFlash.value + 1;
       this.toast('Ran aground: +2.0 s', 'bad', 'Steer away from the sand');
+      this.spray.emit(26, s.x / UM_PER_M, s.y / UM_PER_M, s.h * RAD, 2, 1.5);
     }
     if (e & EV.FINISH) this.finish(s);
   }
 
   private finish(s: BoatState): void {
     sfx.finish();
+    this.spray.emit(30, s.x / UM_PER_M, s.y / UM_PER_M, s.h * RAD, (s.v * TICK_HZ) / UM_PER_M, 1.3);
     vibrate([60, 80, 120]);
     const ticks = raceTicks(s);
     const g = this.ghost;
@@ -540,15 +575,29 @@ export class Race {
     const twa = signedA(s.h - s.windFrom) * RAD;
     const luff = Math.abs(twa) < NO_GO * RAD ? 1 : Math.max(0, 1 - (Math.abs(twa) - NO_GO * RAD) / 0.12);
 
-    // Boats
+    // Boats ride the same swell the water shader draws: pitch and roll from its slope.
+    if (dt > 0) {
+      const acc = (s.v - this.lastV) / Math.max(dt, 1e-3) / vm;
+      this.lastV = s.v;
+      this.surge += (Math.max(-2, Math.min(2, acc)) - this.surge) * Math.min(1, dt * 3);
+    }
+    const sw = swellSlope(bx, by, bh, t);
     this.boat.root.position.set(bx, 0, -by);
     this.boat.root.rotation.y = -bh;
-    this.boat.pose({ twa, speed: speed01, power: Math.min(1, (s.wind / Q10) * speed01), luff, steer: this.input.value, time: t, heel: Math.min(0.2, 0.05 + 0.13 * speed01 * (s.wind / Q10)) * (1 - luff) });
+    this.boat.pose({ twa, speed: speed01, power: Math.min(1, (s.wind / Q10) * speed01), luff, steer: this.input.value, time: t, heel: Math.min(0.2, 0.05 + 0.13 * speed01 * (s.wind / Q10)) * (1 - luff), pitch: sw.pitch + this.surge * 0.03, roll: sw.roll });
+    // Spray from the bow when fast, more in gusts.
+    this.sprayAcc += dt * (Math.max(0, speed01 - 0.72) * 55 + (s.wind > Q10 + 80 ? 6 : 0));
+    while (this.sprayAcc > 1) {
+      this.sprayAcc -= 1;
+      this.spray.emit(1, bx, by, bh, (s.v * TICK_HZ) / UM_PER_M, 0.7);
+    }
+    this.spray.update(dt);
     this.ghostBoat.root.position.set(gx, 0, -gy);
     this.ghostBoat.root.rotation.y = -gh;
     const gtwa = signedA(g.h - g.windFrom) * RAD;
     const gl = Math.abs(gtwa) < NO_GO * RAD ? 1 : 0;
-    this.ghostBoat.pose({ twa: gtwa, speed: Math.max(0, g.v / vm), power: 0.8, luff: gl, steer: 0, time: t + 1.3, heel: 0.1 * (1 - gl) });
+    const gs = swellSlope(gx, gy, gh, t);
+    this.ghostBoat.pose({ twa: gtwa, speed: Math.max(0, g.v / vm), power: 0.8, luff: gl, steer: 0, time: t + 1.3, heel: 0.1 * (1 - gl), pitch: gs.pitch, roll: gs.roll });
     const d = Math.hypot(gx - bx, gy - by);
     this.ghostBoat.setOpacity(Math.min(0.55, Math.max(0.12, (d - 4) / 18)));
 

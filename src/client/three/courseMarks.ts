@@ -149,6 +149,8 @@ export type CourseMarks = {
   group: Group;
   setActive(leg: number, started: boolean): void;
   setLaylines(visible: boolean, windFromRad: number): void;
+  /** A ring of foam spreading from a mark that has just been rounded. */
+  pulse(index: number): void;
   update(time: number): void;
 };
 
@@ -200,8 +202,20 @@ export function createCourseMarks(course: Course): CourseMarks {
     }
   };
 
+  const pulses: Array<{ mesh: Mesh; t0: number }> = [];
+  let now = 0;
   return {
     group,
+    pulse(index) {
+      const m = course.marks[index];
+      if (!m) return;
+      const ring = foamRing(2.2);
+      // own material so it can fade on its own
+      ring.material = (ring.material as MeshBasicMaterial).clone();
+      ring.position.copy(toWorld(m.x, m.y, 0.08));
+      group.add(ring);
+      pulses.push({ mesh: ring, t0: now });
+    },
     setActive(leg, started) {
       activeLeg = leg;
       arrows.forEach((a, i) => (a.visible = started ? i === leg : i === 0));
@@ -217,6 +231,19 @@ export function createCourseMarks(course: Course): CourseMarks {
       buildLaylines(windFromRad);
     },
     update(time) {
+      now = time;
+      for (let k = pulses.length - 1; k >= 0; k--) {
+        const p = pulses[k]!;
+        const a = (time - p.t0) / 1.8;
+        if (a >= 1) {
+          group.remove(p.mesh);
+          pulses.splice(k, 1);
+          continue;
+        }
+        const sc = 1 + a * 5;
+        p.mesh.scale.set(sc, 1, sc);
+        (p.mesh.material as MeshBasicMaterial).opacity = 1 - a;
+      }
       buoys.forEach((b, i) => {
         b.position.y = Math.sin(time * 1.7 + i) * 0.08;
         b.rotation.z = Math.sin(time * 1.3 + i * 2) * 0.06;

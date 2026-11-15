@@ -218,7 +218,7 @@ const SN = 10;
 export type BoatModel = {
   root: Group;
   /** Update pose. twa: signed angle to wind (rad, + = wind from port). power 0..1. */
-  pose(opts: { twa: number; speed: number; power: number; luff: number; steer: number; time: number; heel: number }): void;
+  pose(opts: { twa: number; speed: number; power: number; luff: number; steer: number; time: number; heel: number; pitch?: number; roll?: number }): void;
   setOpacity(a: number): void;
 };
 
@@ -493,7 +493,7 @@ export function createBoat(livery: Livery, opts: { ghost?: boolean } = {}): Boat
   const p = new Vector3();
   return {
     root,
-    pose({ twa, speed, power, luff, steer, time, heel }) {
+    pose({ twa, speed, power, luff, steer, time, heel, pitch = 0, roll = 0 }) {
       const side = twa >= 0 ? 1 : -1;
       const a = Math.abs(twa);
       // Sheet: close-hauled about 12 degrees off the centreline, eased out to about 80 when running.
@@ -501,8 +501,9 @@ export function createBoat(livery: Livery, opts: { ghost?: boolean } = {}): Boat
       const target = luff > 0.5 ? side * 0.08 : side * trim;
       rig.rotation.y += (target - rig.rotation.y) * 0.12;
       // Heel to leeward with power; crew hikes to windward.
-      hullGroup.rotation.z += (-side * heel - hullGroup.rotation.z) * 0.06;
-      hullGroup.rotation.x = Math.sin(time * 1.3) * 0.015 + Math.sin(time * 0.71) * 0.01 - speed * 0.012;
+      hullGroup.rotation.z += (-side * heel + roll - hullGroup.rotation.z) * 0.08;
+      // bow rises with speed (the hull lifts onto its wave) and with the swell's slope
+      hullGroup.rotation.x += (pitch + speed * 0.025 + Math.sin(time * 2.1) * 0.006 - hullGroup.rotation.x) * 0.15;
       hullGroup.position.y = Math.sin(time * 1.6) * 0.04;
       crew.position.x += (-side * 0.5 - crew.position.x) * 0.05;
       helm.position.x += (-side * 0.25 - helm.position.x) * 0.05;
