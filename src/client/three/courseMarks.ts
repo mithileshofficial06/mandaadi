@@ -10,6 +10,7 @@ import {
   Mesh,
   MeshBasicMaterial,
   MeshLambertMaterial,
+  PlaneGeometry,
   RingGeometry,
   SphereGeometry,
   Vector3,
@@ -19,8 +20,32 @@ import { toWorld } from './world';
 
 const ORANGE = '#ff6b1a';
 
+let ringTex: CanvasTexture | null = null;
+function foamRing(radius: number): Mesh {
+  if (!ringTex) {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 64;
+    const g = cv.getContext('2d')!;
+    const grad = g.createRadialGradient(32, 32, 10, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(255,255,255,0)');
+    grad.addColorStop(0.42, 'rgba(255,255,255,0.85)');
+    grad.addColorStop(0.62, 'rgba(255,255,255,0.35)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 64, 64);
+    ringTex = new CanvasTexture(cv);
+  }
+  const geo = new PlaneGeometry(radius * 2, radius * 2);
+  geo.rotateX(-Math.PI / 2);
+  const m = new Mesh(geo, new MeshBasicMaterial({ map: ringTex, transparent: true, depthWrite: false }));
+  m.position.y = 0.05;
+  m.renderOrder = 2;
+  return m;
+}
+
 function markBuoy(): Group {
   const g = new Group();
+  g.add(foamRing(2.4));
   const body = new Mesh(new CylinderGeometry(0.75, 0.85, 1.9, 18), new MeshLambertMaterial({ color: ORANGE }));
   body.position.y = 0.75;
   const band = new Mesh(new CylinderGeometry(0.78, 0.79, 0.22, 18), new MeshLambertMaterial({ color: '#f4f1ea' }));
@@ -34,6 +59,7 @@ function markBuoy(): Group {
 /** Pin buoy with a flag for the ends of the start/finish line. */
 function pin(colour: string): Group {
   const g = new Group();
+  g.add(foamRing(1.4));
   const ball = new Mesh(new SphereGeometry(0.5, 14, 10), new MeshLambertMaterial({ color: colour }));
   ball.position.y = 0.2;
   const pole = new Mesh(new CylinderGeometry(0.03, 0.03, 2.6, 5), new MeshLambertMaterial({ color: '#2b2b2b' }));

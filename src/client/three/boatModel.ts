@@ -18,43 +18,16 @@ import {
   SphereGeometry,
   SRGBColorSpace,
   BoxGeometry,
+  DodecahedronGeometry,
+  LatheGeometry,
+  LineBasicMaterial,
+  LineSegments,
+  TorusGeometry,
+  Vector2,
   Vector3,
-  type Material,
-  Matrix4,
 } from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { bake } from './bake';
 
-/**
- * Merge every mesh under `g` into one vertex-coloured geometry (one draw call). Each part keeps
- * its own colour: from its colour attribute if it has one, otherwise from its material.
- */
-function bake(g: Group): BufferGeometry {
-  g.updateMatrixWorld(true);
-  const inv = new Matrix4().copy(g.matrixWorld).invert();
-  const parts: BufferGeometry[] = [];
-  g.traverse((o) => {
-    const m = o as Mesh;
-    if (!m.isMesh) return;
-    let geo = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
-    geo.applyMatrix4(new Matrix4().multiplyMatrices(inv, m.matrixWorld));
-    if (!geo.getAttribute('normal')) geo.computeVertexNormals();
-    if (!geo.getAttribute('color')) {
-      const c = ((m.material as Material & { color?: Color }).color ?? new Color('#ffffff')) as Color;
-      const n = geo.getAttribute('position').count;
-      const col = new Float32Array(n * 3);
-      for (let i = 0; i < n; i++) {
-        col[i * 3] = c.r;
-        col[i * 3 + 1] = c.g;
-        col[i * 3 + 2] = c.b;
-      }
-      geo.setAttribute('color', new BufferAttribute(col, 3));
-    }
-    for (const k of Object.keys(geo.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'color') geo.deleteAttribute(k);
-    geo = geo.index ? geo.toNonIndexed() : geo;
-    parts.push(geo);
-  });
-  return mergeGeometries(parts, false)!;
-}
 
 export type Livery = {
   hull: string;
@@ -83,7 +56,8 @@ function halfBeam(s: number): number {
   return (B / 2) * Math.pow(Math.max(0, 1 - k), 0.62);
 }
 function sheer(s: number): number {
-  return 0.52 + 0.62 * Math.pow(Math.max(s, 0), 3.2) + 0.3 * Math.pow(Math.max(-s, 0), 3.0);
+  // the vallam's upswept bow and a lifted stern
+  return 0.52 + 0.95 * Math.pow(Math.max(s, 0), 3.4) + 0.38 * Math.pow(Math.max(-s, 0), 3.0);
 }
 function keel(s: number): number {
   return -0.38 * (1 - s * s * 0.85);
@@ -248,6 +222,14 @@ export type BoatModel = {
   setOpacity(a: number): void;
 };
 
+/** A static hull with its fittings (no sail), as one vertex-coloured geometry: for boats on the beach. */
+export function beachedHull(livery: Livery): BufferGeometry {
+  const b = createBoat(livery);
+  const g = b.root.children[0] as Group;
+  // the first child of the hull group is the baked hull mesh
+  return (g.children[0] as Mesh).geometry;
+}
+
 export function createBoat(livery: Livery, opts: { ghost?: boolean } = {}): BoatModel {
   const ghost = !!opts.ghost;
   const root = new Group();
@@ -272,7 +254,10 @@ export function createBoat(livery: Livery, opts: { ghost?: boolean } = {}): Boat
       if (t > 0.82 && t < 0.86) return stripeC;
       // a painted eye near the bow, as on many Coromandel boats
       if (s > 0.72 && s < 0.8 && t > 0.62 && t < 0.74) return white;
-      return tmp.copy(hullC).multiplyScalar(0.92 + 0.08 * Math.sin(s * 40));
+      // plank seams
+      const plank = (t * 7) % 1;
+      if (t > 0.18 && t < 0.8 && plank < 0.07) return tmp.copy(hullC).multiplyScalar(0.62);
+      return tmp.copy(hullC).multiplyScalar(0.9 + 0.1 * Math.sin(s * 40) * Math.sin(t * 23));
     },
     false
   );
@@ -312,6 +297,27 @@ export function createBoat(livery: Livery, opts: { ghost?: boolean } = {}): Boat
   mast.position.set(mastFoot.x, 3.4, mastFoot.z - 0.12);
   mast.rotation.x = -0.035;
   fixed.add(mast);
+
+  // Stem post: the bow timber rising above the sheer, raked forward.
+  const stem = new Mesh(new BoxGeometry(0.07, 0.75, 0.1), mkMat({ color: woodDark }));
+  stem.position.set(0, sheer(0.97) + 0.15, zOf(0.975) - 0.05);
+  stem.rotation.x = -0.45;
+  fixed.add(stem);
+  // Cargo: a clay water pot, a coiled net and an anchor stone.
+  const potProfile = [
+    [0.0, 0.0], [0.1, 0.0], [0.17, 0.06], [0.2, 0.15], [0.18, 0.26], [0.1, 0.32], [0.08, 0.36], [0.1, 0.38],
+  ].map(([x, y]) => new Vector3(x, y, 0));
+  const pot = new Mesh(new LatheGeometry(potProfile.map((v) => new Vector2(v.x, v.y)), 12), mkMat({ color: '#b5643a' }));
+  pot.position.set(0.12, keel(0.55) + 0.16, zOf(0.55));
+  fixed.add(pot);
+  const net = new Mesh(new TorusGeometry(0.26, 0.09, 6, 14), mkMat({ color: '#6d7d55' }));
+  net.rotation.x = Math.PI / 2;
+  net.scale.set(1, 1, 0.6);
+  net.position.set(-0.12, keel(0.2) + 0.2, zOf(0.2));
+  fixed.add(net);
+  const stone = new Mesh(new DodecahedronGeometry(0.13, 0), mkMat({ color: '#77736b' }));
+  stone.position.set(0.05, keel(0.78) + 0.2, zOf(0.78));
+  fixed.add(stone);
   hullGroup.add(new Mesh(bake(fixed), hullMat));
 
   // Rig: yard + sail, rotates about the mast.
@@ -429,6 +435,25 @@ export function createBoat(livery: Livery, opts: { ghost?: boolean } = {}): Boat
   oarPivot.add(new Mesh(bake(oarParts), hullMat));
   hullGroup.add(oarPivot);
 
+  // Ropes: the halyard from the masthead to the yard, and the sheet from the clew to the helmsman.
+  const ropeMat = new LineBasicMaterial({ color: '#3a2e22', transparent: ghost, opacity: ghost ? 0.4 : 1 });
+  const ropeGeo = new BufferGeometry();
+  const ropePos = new Float32Array(4 * 3);
+  ropeGeo.setAttribute('position', new BufferAttribute(ropePos, 3));
+  const ropes = new LineSegments(ropeGeo, ropeMat);
+  const clewIdx = Math.max(0, bary.findIndex(([u, v]) => u === 0 && v === 1));
+  ropes.frustumCulled = false;
+  hullGroup.add(ropes);
+  const mastHead = new Vector3(mastFoot.x, 6.85, mastFoot.z - 0.35);
+  const sheetEnd = new Vector3(0.25, sheer(-0.6) + 0.1, zOf(-0.6));
+  const yardMid = TACK.clone().lerp(PEAK, 0.42);
+  const rigPoint = (v: Vector3, out: Vector3) => {
+    const c = Math.cos(rig.rotation.y);
+    const sn = Math.sin(rig.rotation.y);
+    return out.set(v.x * c + v.z * sn + rig.position.x, v.y + rig.position.y, -v.x * sn + v.z * c + rig.position.z);
+  };
+  const tmpA = new Vector3();
+
   // Foam collar where the hull meets the water: brighter with speed, a bow wave and side wash.
   const foamMat = new ShaderMaterial({
     transparent: true,
@@ -497,11 +522,18 @@ export function createBoat(livery: Livery, opts: { ghost?: boolean } = {}): Boat
       }
       pos.needsUpdate = true;
       sailGeo.computeVertexNormals();
+      // Ropes as two segments: yard -> masthead (halyard), clew -> helmsman (sheet).
+      rigPoint(yardMid, tmpA);
+      ropePos.set([tmpA.x, tmpA.y, tmpA.z, mastHead.x, mastHead.y, mastHead.z], 0);
+      rigPoint(p.set(pos.getX(clewIdx), basePos[clewIdx * 3 + 1]!, basePos[clewIdx * 3 + 2]!), tmpA);
+      ropePos.set([tmpA.x, tmpA.y, tmpA.z, sheetEnd.x, sheetEnd.y, sheetEnd.z], 6);
+      (ropeGeo.getAttribute('position') as BufferAttribute).needsUpdate = true;
       foamMat.uniforms.uSpeed!.value = speed;
       foamMat.uniforms.uTime!.value = time;
     },
     setOpacity(a) {
       for (const m of mats) m.opacity = a;
+      ropeMat.opacity = a * 0.8;
       foamMat.uniforms.uOpacity!.value = a * 0.7;
     },
   };

@@ -27,6 +27,8 @@ import { createLand } from '../three/islands';
 import { LIVERIES, createBoat, type BoatModel } from '../three/boatModel';
 import { QualityScaler } from '../three/renderer';
 import { createWater } from '../three/water';
+import { type Sky, createSky } from '../three/sky';
+import { type Birds, createBirds } from '../three/birds';
 import { landOf } from '../three/world';
 import { fmtTicks, hud } from './hudState';
 
@@ -80,6 +82,8 @@ export class Race {
   private wake;
   private ghostWake;
   private fog: Fog;
+  private sky: Sky;
+  private birds: Birds;
   private wakeT = 0;
   private coneTime = 0;
   private promptStage = 0;
@@ -124,7 +128,12 @@ export class Race {
     const windFromRad = course.wind.from * RAD;
     const windToRad = windFromRad + Math.PI;
     const land = landOf(course);
-    this.water = createWater(land, windToRad, SUN);
+    this.water = createWater(land, windToRad, SUN, course.wind.strength);
+    this.sky = createSky(SUN);
+    this.scene.add(this.sky.mesh);
+    const isl = course.islands.map((i) => i.parts[0]!).map((p) => ({ x: p.x, y: p.y }));
+    this.birds = createBirds([...isl, { x: -100, y: 120 }, ...(course.marks[0] ? [course.marks[0]] : [])]);
+    this.scene.add(this.birds.mesh);
     this.scene.add(this.water.mesh);
     this.land = createLand(course, windToRad, SUN);
     this.scene.add(this.land.group);
@@ -561,6 +570,7 @@ export class Race {
     this.water.setPuffs(puffs);
     this.water.update(t);
     this.land.update(t);
+    this.birds.update(t);
     this.marks.update(t);
 
     const warn = Math.max(0, 1 - (Math.abs(twa) - NO_GO * RAD) / 0.35);
@@ -575,6 +585,7 @@ export class Race {
     const aim = Math.atan2(tgt.x - bx, tgt.y - by);
     this.rig.update(Math.max(dt, 0.001), bx, by, bh, (Math.max(0, s.v) * TICK_HZ) / UM_PER_M, aim, t);
     if (hud.phase.value !== 'finished') this.updateHudFrame(tgt, aim, bx, by, windFrom, s);
+    this.sky.update(t, this.rig.camera.position);
     this.renderer.render(this.scene, this.rig.camera);
   }
 

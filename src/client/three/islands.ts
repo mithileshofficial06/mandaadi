@@ -5,7 +5,9 @@ import {
   BufferAttribute,
   BufferGeometry,
   CanvasTexture,
+  BoxGeometry,
   CatmullRomCurve3,
+  ConeGeometry,
   Color,
   DoubleSide,
   Group,
@@ -25,6 +27,8 @@ import {
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Course } from '../../shared/core/course';
 import { type LandShape, MAINLAND, landSdf } from './world';
+import { bake } from './bake';
+import { LIVERIES, beachedHull } from './boatModel';
 
 // Small seeded RNG (client only, cosmetic).
 function rng(seed: number): () => number {
@@ -241,6 +245,51 @@ function shadowTexture(): CanvasTexture {
 
 export type Land = { group: Group; update(time: number): void };
 
+/** x on the mainland at inland distance e for a given y (course metres). */
+function mainlandX(y: number, e: number): number {
+  const r = MAINLAND.r - e;
+  return MAINLAND.x + Math.sqrt(Math.max(0, r * r - (y - MAINLAND.y) * (y - MAINLAND.y)));
+}
+
+/** Thatched huts above the beach and painted boats pulled up on the sand. One draw call. */
+function fishingVillage(ground: Ground): Mesh {
+  const g = new Group();
+  const r = rng(808);
+  const walls = ['#ece4d2', '#d9b47a', '#cfdcd6', '#e8c9a6', '#f0e8d8'];
+  const lambert = (c: string) => new MeshLambertMaterial({ color: c });
+  for (let k = 0; k < 9; k++) {
+    const y = -20 + k * 30 + (r() - 0.5) * 14;
+    const x = mainlandX(y, 17 + r() * 8);
+    const h = ground.heightAt(x, y);
+    const hut = new Group();
+    const w = 3 + r() * 1.4;
+    const d = 2.6 + r();
+    const body = new Mesh(new BoxGeometry(w, 2.2, d), lambert(walls[k % walls.length]!));
+    body.position.y = 1.1;
+    const roof = new Mesh(new ConeGeometry(Math.max(w, d) * 0.86, 1.9 + r() * 0.5, 4), lambert(r() > 0.5 ? '#8b6b3d' : '#7a5c34'));
+    roof.rotation.y = Math.PI / 4;
+    roof.scale.set(w / Math.max(w, d), 1, d / Math.max(w, d));
+    roof.position.y = 2.2 + 0.95;
+    const door = new Mesh(new BoxGeometry(0.06, 1.5, 0.8), lambert('#3b2a1c'));
+    door.position.set(w / 2 + 0.02, 0.75, 0);
+    hut.add(body, roof, door);
+    hut.position.set(x, h - 0.1, -y);
+    hut.rotation.y = (r() - 0.5) * 0.5;
+    g.add(hut);
+  }
+  // Boats on the beach, bows up the sand.
+  const hulls = LIVERIES.map((l) => beachedHull(l));
+  for (let k = 0; k < 5; k++) {
+    const y = -5 + k * 47 + (r() - 0.5) * 12;
+    const x = mainlandX(y, 4 + r() * 2.5);
+    const m = new Mesh(hulls[k % hulls.length]!, new MeshLambertMaterial({ vertexColors: true }));
+    m.position.set(x, ground.heightAt(x, y) + 0.3, -y);
+    m.rotation.set(0, Math.PI / 2 + (r() - 0.5) * 0.4, 0.14 * (r() > 0.5 ? 1 : -1));
+    g.add(m);
+  }
+  return new Mesh(bake(g), new MeshLambertMaterial({ vertexColors: true }));
+}
+
 /** Sway: displace vertices by height, along the wind, with a per-palm phase. */
 function swayMaterial(windTo: Vector3): { mat: MeshLambertMaterial; uniforms: { uTime: { value: number } } } {
   const uniforms = { uTime: { value: 0 } };
@@ -346,6 +395,7 @@ export function createLand(course: Course, windToRad: number, sunDir: Vector3): 
     group.add(new Mesh(ground.geo, groundMat));
     placePalms(shape, ground, 150, 4242, [-260, -280, -70, 680], 5, 150);
     placeBushes(shape, ground, 520, 99, [-300, -280, -70, 680], 9, 220);
+    group.add(fishingVillage(ground));
   }
 
   // Palms: one merged mesh with wind sway.

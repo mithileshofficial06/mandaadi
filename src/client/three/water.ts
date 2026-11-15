@@ -58,6 +58,7 @@ uniform vec4 uLandRect;
 uniform vec3 uDeep, uMid, uShallow, uSand, uSkyTop, uSkyHorizon;
 uniform float uGustShow;
 uniform float uHaze;
+uniform float uCaps;
 varying vec3 vWorld;
 
 float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
@@ -161,6 +162,18 @@ void main() {
     col += vec3(0.85, 0.92, 1.0) * sparkle * 0.18;
   }
 
+  // Whitecaps: more in a stronger breeze, and many more inside gusts (they show where the wind is).
+  float capAmt = uCaps + gust * 1.8 * uGustShow;
+  if (capAmt > 0.01 && sdf > 6.0) {
+    // Small streaks, long across the wind and thin along it, breaking and fading as they travel.
+    vec2 perp = vec2(-wd.y, wd.x);
+    vec2 wq = vec2(dot(p, perp) * 0.5, dot(p, wd) * 1.7 - t * 2.4);
+    float crest = smoothstep(0.9 - min(capAmt, 1.0) * 0.05, 0.99, noise(wq));
+    float breakup = smoothstep(0.38, 0.78, noise(p * 2.8 + wd * t * 1.3));
+    float life = smoothstep(0.35, 0.75, noise(p * 0.06 + vec2(t * 0.11, -t * 0.07)));
+    col = mix(col, vec3(0.94, 0.97, 0.98), crest * breakup * life * min(1.0, capAmt) * 0.85);
+  }
+
   // Shore foam: a lapping band plus scattered foam just off the beach.
   if (sdf < 4.5) {
     float lap = 0.9 + 0.7 * sin(t * 1.15 - sdf * 1.4 + noise(p * 0.3) * 4.0);
@@ -219,7 +232,7 @@ function bakeLand(land: LandShape): DataTexture {
   return tex;
 }
 
-export function createWater(land: LandShape, windToRad: number, sunDir: Vector3, palette = TROPICAL): Water {
+export function createWater(land: LandShape, windToRad: number, sunDir: Vector3, strength = 1, palette = TROPICAL): Water {
   const puffs = Array.from({ length: MAX_PUFFS }, () => new Vector4());
   const c = (h: string) => new Color(h);
   const material = new ShaderMaterial({
@@ -242,6 +255,7 @@ export function createWater(land: LandShape, windToRad: number, sunDir: Vector3,
       uSkyHorizon: { value: c(palette.skyHorizon) },
       uGustShow: { value: 1 },
       uHaze: { value: 130 },
+      uCaps: { value: [0.0, 0.18, 0.45][strength] ?? 0.18 },
     },
   });
   const geo = new PlaneGeometry(2400, 2400, 1, 1);
