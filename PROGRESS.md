@@ -23,6 +23,19 @@ Commits 67122c2 .. 5b84765:
 - Animation: bow spray, swell pitch/roll matched to the water shader, bow lift on acceleration, rounding ripple, Go flash, finish count-up.
 - Checks: 10/10 tests, lint, tsc, build; e2e 1:33.1 no errors; 55 fps at 4x CPU throttle dpr 2; race.js 182 KB gz, splash ~9 KB gz.
 
+## Agreed build plan (Mithilesh, 2026-11-15) - do in this order, commit after each
+DONE 1. Wind ring around the boat (red no-go, green fastest angles, amber dead downwind, bow needle) + dead-downwind tip. Commit 7c43545.
+2. Camera angle button cycling Chase (default) / Low cinematic (near water, horizon visible) / Top-down tactical; remember choice; pinch zoom in all.
+3. GPS minimap like GTA: round, bottom-left (move the rudder bar to bottom centre), rotates with the view with N on the rim. Shows: you (orange arrow + trail + 5 s projected line), next mark highlighted + dotted route, other marks with rounding arrows, islands, start/finish, live gusts, ghost/fleet dots, wind arrow, faint cone. Tap = full map (replaces the map button).
+4. Core skills in src/shared/core with tests (server replays them): perfect tack (shrinking ring, tap as the sail crosses = keep ~95% speed instead of ~84%), fish shoals (gulls dive; sail through = -1 s; placed off the obvious line), currents (tide day), wind-shift alert.
+5. The Fleet: ~10 boats at the start; bots named after Ramanathapuram fishing villages (Pamban, Mandapam, Kilakarai, Thondi, Rameswaram, Devipattinam...) with different skill and side preferences, clearly bots; live position ("4th of 10"), overtake sound/toast. Real redditor ghosts replace bots in tier B.
+6. Festival race day: crowds + bunting on the beach, decorated committee boat at the line, synthesized parai/thavil drums for countdown and finish, cheering.
+7. Seven race types (Mon Light Air, Tue Windward-Leeward, Wed Shifty, Thu Tide Race, Fri Storm with rain, Sat Triangle, Sun Island Slalom) each with its own weather/time-of-day preset; practice course picker; autopilot test that every course finishes both sides.
+8. Sea events: squall line (rain, big gust + shift), dolphins, a trawler passing (cosmetic).
+9. Race replay (cinematic, 4x) + shareable postcard image.
+10. Paint your vallam (hull colours, eye, sail patch, flag), unlocked by rank later.
+Then tier B (Reddit features). Avoid: speed boosts / power-ups (break "same wind, your line").
+
 ## Next
 1. **Mithilesh:** check that `mandaadi` is free as a Devvit app name (`devvit new`/upload will say), create `r/mandaadi_dev` (private test sub). If the name is taken, use `mandaadi-race` and update devvit.json `name` + `dev.subreddit`.
 2. First `devvit playtest` on r/mandaadi_dev; test on a real phone in the Reddit app (drag steering inside the webview, double-tap not swallowed, fps).
