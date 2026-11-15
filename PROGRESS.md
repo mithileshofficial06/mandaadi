@@ -97,3 +97,4 @@ Then tier B (Reddit features). Avoid: speed boosts / power-ups (break "same wind
 - Charts: currents drawn with flow arrows; the wind arrow picks a corner clear of marks, islands, shoals and the start line.
 - Upgrade trigger posts today's race if missing (once per day). Old untitled Day 1 test post removed (with its test comment).
 - README rewritten (with the name meaning); SUBMISSION.md draft for the hackathon form.
+- 2026-11-16: test autopilot limited to moderators (v0.0.9). Requested Reddit to make r/mandaadi_race_dev public (Mod Tools > Settings > Privacy & Discovery; reviews take < 24 h, answer by mod mail). The sub accepts join requests meanwhile.
