@@ -14,7 +14,7 @@ import {
 import { EV, NO_GO, type BoatState, initialState, raceTicks, step, vmax } from '../../shared/core/boat';
 import type { Course } from '../../shared/core/course';
 import { GUN_TICK, Q10, TICK_HZ, UM_PER_M } from '../../shared/core/fixed';
-import { InputRecorder } from '../../shared/core/inputs';
+import { InputPlayer, type InputLog, InputRecorder } from '../../shared/core/inputs';
 import { Pilot } from '../../shared/core/pilot';
 import { ANG, deg, signedA } from '../../shared/core/trig';
 import type { Wake } from '../three/effects';
@@ -86,7 +86,7 @@ const vibrate = (p: number | number[]) => {
   }
 };
 
-export type RaceOpts = { coach: boolean; laylines: boolean; reducedMotion: boolean; livery?: Livery };
+export type RaceOpts = { coach: boolean; laylines: boolean; reducedMotion: boolean; livery?: Livery; replay?: InputLog };
 
 export class Race {
   private renderer: WebGLRenderer;
@@ -102,6 +102,8 @@ export class Race {
   private rec = new InputRecorder();
   /** Debug: ?autopilot=1 sails the player's boat with the autopilot (for end-to-end screenshots). */
   private auto: Pilot | null = null;
+  private player: InputPlayer | null = null;
+  private speedMul = 1;
   private acc = 0;
   private last = 0;
   private time = 0;
@@ -248,6 +250,12 @@ export class Race {
     this.pilot = new Pilot(course, { up: Math.round((50 * ANG) / 360), down: Math.round((150 * ANG) / 360), overstand: 12, firstSide: -1 });
 
     if (new URLSearchParams(location.search).get('autopilot')) this.auto = new Pilot(course);
+    if (opts.replay) {
+      // Replay: the same race re-sailed from your recorded inputs, faster, with the low camera.
+      this.player = new InputPlayer(opts.replay);
+      this.speedMul = 3;
+      this.opts.coach = false;
+    }
     this.input = new SteerInput(canvas);
     this.input.onFirstSteer = () => {
       if (this.promptStage === 1) this.setPrompt(null);
@@ -319,6 +327,39 @@ export class Race {
     hud.map.value = this.rig.inMap;
   }
 
+  /** A postcard of this moment: the 3D view with the race details along the bottom. */
+  postcard(lines: [string, string, string]): string {
+    this.renderer.render(this.scene, this.rig.camera);
+    const src = this.canvas;
+    const W = 1080;
+    const H = 1350;
+    const cv = document.createElement('canvas');
+    cv.width = W;
+    cv.height = H;
+    const g = cv.getContext('2d')!;
+    const k = Math.max(W / src.width, (H - 260) / src.height);
+    const sw = W / k;
+    const sh = (H - 260) / k;
+    g.drawImage(src, (src.width - sw) / 2, (src.height - sh) / 2, sw, sh, 0, 0, W, H - 260);
+    g.fillStyle = '#0f2630';
+    g.fillRect(0, H - 260, W, 260);
+    g.fillStyle = '#ff6b1a';
+    g.fillRect(0, H - 260, W, 8);
+    g.fillStyle = '#e8c987';
+    g.font = '600 38px "Barlow Condensed", sans-serif';
+    g.fillText(lines[0].toUpperCase(), 60, H - 180);
+    g.fillStyle = '#f4f1ea';
+    g.font = '700 110px "Barlow Condensed", sans-serif';
+    g.fillText(lines[1], 60, H - 70);
+    g.font = '600 40px "Barlow Condensed", sans-serif';
+    g.textAlign = 'right';
+    g.fillText(lines[2].toUpperCase(), W - 60, H - 80);
+    g.fillStyle = '#c4d3d6';
+    g.font = '700 34px "Barlow Condensed", sans-serif';
+    g.fillText('MANDAADI · SAME WIND. YOUR LINE.', W - 60, H - 180);
+    return cv.toDataURL('image/jpeg', 0.9);
+  }
+
   cycleCamera(): void {
     const order = ['chase', 'low', 'top'] as const;
     this.rig.mode = order[(order.indexOf(this.rig.mode) + 1) % order.length]!;
@@ -342,6 +383,12 @@ export class Race {
     hud.phase.value = 'countdown';
     hud.countdown.value = 3;
     this.rig.setOrbit(false);
+    if (this.player) {
+      this.rig.mode = 'low';
+      hud.camMode.value = 'low';
+      this.input.enabled = false;
+      hud.replay.value = true;
+    }
     if (this.opts.coach) this.setPrompt('Drag left or right to steer', 1);
     sfx.pip();
     sfx.drums(3);
@@ -417,7 +464,7 @@ export class Race {
     const dt = Math.min(0.1, (now - this.last) / 1000);
     this.last = now;
     this.quality.sample(dt);
-    this.acc += dt;
+    this.acc += dt * this.speedMul;
     const stepDt = 1 / TICK_HZ;
     while (this.acc >= stepDt) {
       this.acc -= stepDt;
@@ -444,7 +491,7 @@ export class Race {
     this.prev.x = s.x;
     this.prev.y = s.y;
     this.prev.h = s.h;
-    const input = this.auto ? this.auto.next(s) : this.input.sample(stepDt);
+    const input = this.player ? this.player.next(s.tick) : this.auto ? this.auto.next(s) : this.input.sample(stepDt);
     this.rec.record(s.tick, input);
     step(s, this.course, input);
     this.stepGhost();

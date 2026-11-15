@@ -27,3 +27,20 @@ const time = await page.locator('.finish__time').getAttribute('aria-label').catc
 console.log('finish time', time, 'errors', errors.length ? errors : 'none');
 await browser.close();
 if (!time) process.exit(1);
+
+// Replay: re-sail the same race at 3x and come back to the finish card.
+{
+  const b2 = await chromium.launch({ headless: true, args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] });
+  const p2 = await b2.newPage({ viewport: { width: 390, height: 844 } });
+  const errs = [];
+  p2.on('pageerror', (e) => errs.push(e.message));
+  await p2.goto('http://127.0.0.1:5173/race.html?user=alice&autopilot=1');
+  await p2.getByRole('button', { name: 'Start the race' }).click({ timeout: 15000 });
+  await p2.locator('.finish').waitFor({ timeout: 140000 });
+  await p2.getByRole('button', { name: 'Watch replay' }).click();
+  await p2.waitForTimeout(12000);
+  await p2.screenshot({ path: `${out}/replay.png` });
+  await p2.locator('.finish').waitFor({ timeout: 60000 });
+  console.log('replay ok, errors', errs.length ? errs : 'none');
+  await b2.close();
+}

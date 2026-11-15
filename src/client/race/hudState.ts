@@ -42,6 +42,7 @@ export const hud = {
   toast: signal<Toast | null>(null),
   paused: signal(false),
   go: signal(false),
+  replay: signal(false),
   place: signal(''),
   /** 0 no tack in progress, 1 tacking (tap soon), 2 tap now for a perfect tack. */
   tackWindow: signal(0),

@@ -25,15 +25,16 @@ Commits 67122c2 .. 5b84765:
 
 ## Agreed build plan (Mithilesh, 2026-11-15) - do in this order, commit after each
 DONE 1. Wind ring around the boat (red no-go, green fastest angles, amber dead downwind, bow needle) + dead-downwind tip. Commit 7c43545.
-2. Camera angle button cycling Chase (default) / Low cinematic (near water, horizon visible) / Top-down tactical; remember choice; pinch zoom in all.
-3. GPS minimap like GTA: round, bottom-left (move the rudder bar to bottom centre), rotates with the view with N on the rim. Shows: you (orange arrow + trail + 5 s projected line), next mark highlighted + dotted route, other marks with rounding arrows, islands, start/finish, live gusts, ghost/fleet dots, wind arrow, faint cone. Tap = full map (replaces the map button).
-4. Core skills in src/shared/core with tests (server replays them): perfect tack (shrinking ring, tap as the sail crosses = keep ~95% speed instead of ~84%), fish shoals (gulls dive; sail through = -1 s; placed off the obvious line), currents (tide day), wind-shift alert.
-5. The Fleet: ~10 boats at the start; bots named after Ramanathapuram fishing villages (Pamban, Mandapam, Kilakarai, Thondi, Rameswaram, Devipattinam...) with different skill and side preferences, clearly bots; live position ("4th of 10"), overtake sound/toast. Real redditor ghosts replace bots in tier B.
-6. Festival race day: crowds + bunting on the beach, decorated committee boat at the line, synthesized parai/thavil drums for countdown and finish, cheering.
-7. Seven race types (Mon Light Air, Tue Windward-Leeward, Wed Shifty, Thu Tide Race, Fri Storm with rain, Sat Triangle, Sun Island Slalom) each with its own weather/time-of-day preset; practice course picker; autopilot test that every course finishes both sides.
-8. Sea events: squall line (rain, big gust + shift), dolphins, a trawler passing (cosmetic).
-9. Race replay (cinematic, 4x) + shareable postcard image.
-10. Paint your vallam (hull colours, eye, sail patch, flag), unlocked by rank later.
+DONE 2. Camera angle button cycling Chase (default) / Low cinematic (near water, horizon visible) / Top-down tactical; remember choice; pinch zoom in all.
+DONE 3. GPS minimap like GTA: round, bottom-left (move the rudder bar to bottom centre), rotates with the view with N on the rim. Shows: you (orange arrow + trail + 5 s projected line), next mark highlighted + dotted route, other marks with rounding arrows, islands, start/finish, live gusts, ghost/fleet dots, wind arrow, faint cone. Tap = full map (replaces the map button).
+DONE 4. Core skills in src/shared/core with tests (server replays them): perfect tack (shrinking ring, tap as the sail crosses = keep ~95% speed instead of ~84%), fish shoals (gulls dive; sail through = -1 s; placed off the obvious line), currents (tide day), wind-shift alert.
+DONE 5. The Fleet: ~10 boats at the start; bots named after Ramanathapuram fishing villages (Pamban, Mandapam, Kilakarai, Thondi, Rameswaram, Devipattinam...) with different skill and side preferences, clearly bots; live position ("4th of 10"), overtake sound/toast. Real redditor ghosts replace bots in tier B.
+DONE 6. Festival race day: crowds + bunting on the beach, decorated committee boat at the line, synthesized parai/thavil drums for countdown and finish, cheering.
+DONE 7. Seven race types (Mon Light Air, Tue Windward-Leeward, Wed Shifty, Thu Tide Race, Fri Storm with rain, Sat Triangle, Sun Island Slalom) each with its own weather/time-of-day preset; practice course picker; autopilot test that every course finishes both sides.
+DONE 8. Sea events: squall line (rain, big gust + shift), dolphins, a trawler passing (cosmetic).
+DONE 9. Race replay (cinematic, 4x) + shareable postcard image.
+DONE 10. Paint your vallam (hull colours, eye, sail patch, flag), unlocked by rank later.
+Status 2026-11-15 night: ALL 10 DONE (commits 448bb0e..latest). Notes: sea events are dolphins + trawler (no squall yet); paint is local-only (ranks unlock later); longest courses run up to ~122 s with the autopilot (test limit 130 s) - tune towards 50-80 s when the solver lands; map view is ~37 fps unthrottled with the full fleet (racing view 53 fps at 4x throttle). Bots are named after fishing villages and are clearly bots. race.js 191 KB gz.
 Then tier B (Reddit features). Avoid: speed boosts / power-ups (break "same wind, your line").
 
 ## Next

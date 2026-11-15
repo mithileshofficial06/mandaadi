@@ -153,6 +153,8 @@ export type HudProps = {
   onCamera: () => void;
   courses: Course[];
   onPick: (id: string) => void;
+  onReplay: () => void;
+  onPostcard: () => void;
   livery: Livery;
   onLivery: (l: Livery) => void;
   onAgain: () => void;
@@ -348,6 +350,7 @@ function Messages(phase: string) {
           <span>Go</span>
         </div>
       )}
+      {hud.replay.value && phase !== 'finished' && <div class="replaytag">Replay · 3x</div>}
       {hud.banner.value && (
         <div class="banner" role="alert">
           {hud.banner.value}
@@ -448,6 +451,14 @@ function Finish(props: HudProps) {
           <dd>{res.penalties ? `+${(res.penalties / 30).toFixed(1)} s` : 'None'}</dd>
         </div>
       </dl>
+      <div class="startcard__row finish__row">
+        <button class="btn btn--ghost btn--grow" onClick={props.onReplay}>
+          Watch replay
+        </button>
+        <button class="btn btn--ghost btn--grow" onClick={props.onPostcard}>
+          Save postcard
+        </button>
+      </div>
       <button class="btn btn--primary btn--big" onClick={props.onAgain}>
         Race again{mine !== 0 ? `: try the ${mine < 0 ? 'right' : 'left'}` : ''}
       </button>

@@ -94,6 +94,8 @@ body { font-family: var(--f-ui); color: var(--foam); -webkit-tap-highlight-color
 .chip--lull { background: rgba(244, 241, 234, 0.88); color: var(--ink); }
 
 .place { font: 700 17px/1 var(--f-num); letter-spacing: 0.06em; text-transform: uppercase; color: #fff; background: rgba(12,28,36,0.75); border: 1px solid var(--panel-line); padding: 4px 8px; border-radius: 6px; }
+.finish__row { margin-bottom: 10px; }
+.replaytag { position: absolute; left: 50%; top: calc(124px + var(--safe-t)); transform: translateX(-50%); padding: 6px 12px; border-radius: 999px; background: var(--cone); font: 700 16px/1 var(--f-num); letter-spacing: 0.14em; text-transform: uppercase; }
 .fleet { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 3px; text-align: left; }
 .fleet li { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: baseline; padding: 4px 8px; border-radius: 6px; font-size: 15px; }
 .fleet li span { font: 700 15px/1 var(--f-num); color: var(--text-dim); }

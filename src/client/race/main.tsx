@@ -9,7 +9,7 @@ import { sfx } from '../app/audio';
 import { Race } from './game';
 import { LIVERIES, type Livery } from '../three/boatModel';
 import { Hud } from './Hud';
-import { hud } from './hudState';
+import { fmtTicks as fmt, hud } from './hudState';
 
 type BootUi = { to(p: number): void; done(): void };
 if (import.meta.env.DEV) (window as unknown as { __hud: typeof hud }).__hud = hud;
@@ -53,6 +53,9 @@ const params = new URLSearchParams(location.search);
 let race: Race | null = null;
 let course: Course = SANDBAR_SPRINT;
 let day = 1;
+let lastLog: import('../../shared/core/inputs').InputLog | null = null;
+
+let replayLog: import('../../shared/core/inputs').InputLog | null = null;
 
 function newRace(): Race {
   if (race) {
@@ -65,8 +68,11 @@ function newRace(): Race {
     canvas = fresh;
   }
   const done = racesDone();
-  const r = new Race(canvas, course, { coach: done < 2, laylines: done < 3, reducedMotion: reduced, livery: myLivery() });
-  r.setOnFinish(() => store.set(RACES_KEY, String(racesDone() + 1)));
+  const r = new Race(canvas, course, { coach: done < 2, laylines: done < 3, reducedMotion: reduced, livery: myLivery(), ...(replayLog ? { replay: replayLog } : {}) });
+  r.setOnFinish((log) => {
+    if (!replayLog) store.set(RACES_KEY, String(racesDone() + 1));
+    lastLog = log.slice();
+  });
   return r;
 }
 
@@ -78,6 +84,7 @@ function resetHud(): void {
   hud.banner.value = null;
   hud.marker.value = null;
   hud.paused.value = false;
+  hud.replay.value = false;
 }
 
 function App() {
@@ -99,6 +106,25 @@ function App() {
       onTack={() => race?.tack()}
       onMap={() => race?.toggleMap()}
       onCamera={() => race?.cycleCamera()}
+      onReplay={() => {
+        if (!lastLog) return;
+        replayLog = lastLog;
+        const keep = hud.result.value;
+        resetHud();
+        race = newRace();
+        race.setOnFinish(() => (hud.result.value = keep));
+        race.go();
+        replayLog = null;
+      }}
+      onPostcard={() => {
+        const r = hud.result.value;
+        if (!race || !r) return;
+        const url = race.postcard([`Day ${day} · ${course.name}`, fmt(r.ticks), r.place]);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `mandaadi-${course.id}.jpg`;
+        a.click();
+      }}
       courses={COURSES}
       livery={myLivery()}
       onLivery={(l) => {
@@ -117,6 +143,7 @@ function App() {
         setTick((n) => n + 1);
       }}
       onAgain={() => {
+        replayLog = null;
         resetHud();
         race = newRace();
         start();
