@@ -52,3 +52,9 @@ Then tier B (Reddit features). Avoid: speed boosts / power-ups (break "same wind
 - Mainland beach could get fishing huts and beached boats (polish tier).
 - Wind streak effect was removed (looked like rain); `createStreaks` is still in effects.ts, unused.
 
+## On Reddit (2026-11-15)
+- App: `mandaadi-race` (the name `mandaadi` was taken), owner u/kira_-_06. Portal: https://developers.reddit.com/apps/mandaadi-race
+- Playtest sub: r/mandaadi_race_dev (private). The install trigger posted "Mandaadi · Day 1"; splash and race both work in the Reddit modal, 56 fps on desktop, no console errors.
+- Devvit CLI for this project uses its own login dir `~/.devvit-mandaadi` via `tools/dv.mjs` (`npm run dv -- <cmd>`); the default `~/.devvit` (u/mithileshofficial06, Paanai) is untouched.
+- Browser for Reddit chores: the Playwright Chromium with profile `.mandaadi/reddit-profile`, started with `--remote-debugging-port=9333`; `tools/rb.mjs`, `rb-act.mjs`, `rb-race*.mjs` drive it over CDP (Reddit blocks headless).
+- Not yet checked on Reddit: a full race to the finish, phone (Reddit app) view.
