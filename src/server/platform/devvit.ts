@@ -1,0 +1,114 @@
+import { context, media, reddit, redis, settings } from '@devvit/web/server';
+import { RichTextBuilder } from '@devvit/shared-types/richtext/RichTextBuilder.js';
+import type { KV, Platform, Tx } from './types';
+
+type T3 = `t3_${string}`;
+const asT3 = (id: string): T3 => (id.startsWith('t3_') ? (id as T3) : (`t3_${id}` as T3));
+
+const kv: KV = {
+  get: (k) => redis.get(k),
+  set: (k, v, o) => redis.set(k, v, o),
+  del: async (...k) => {
+    if (k.length) await redis.del(...k);
+  },
+  exists: (...k) => redis.exists(...k),
+  incrBy: (k, n) => redis.incrBy(k, n),
+  expire: (k, s) => redis.expire(k, s),
+  hGet: (k, f) => redis.hGet(k, f),
+  hMGet: (k, f) => redis.hMGet(k, f),
+  hGetAll: async (k) => (await redis.hGetAll(k)) ?? {},
+  hSet: (k, v) => redis.hSet(k, v),
+  hIncrBy: (k, f, n) => redis.hIncrBy(k, f, n),
+  hDel: (k, f) => redis.hDel(k, f),
+  zAdd: (k, ...m) => redis.zAdd(k, ...m),
+  zRange: (k, a, b, o) => redis.zRange(k, a, b, o ?? { by: 'rank' }),
+  zRem: (k, m) => redis.zRem(k, m),
+  zScore: (k, m) => redis.zScore(k, m),
+  zRank: (k, m) => redis.zRank(k, m),
+  zCard: (k) => redis.zCard(k),
+  zIncrBy: (k, m, n) => redis.zIncrBy(k, m, n),
+  zRemRangeByRank: (k, a, b) => redis.zRemRangeByRank(k, a, b),
+  watch: async (...keys) => {
+    const tx = await redis.watch(...keys);
+    const wrapped: Tx = {
+      multi: () => tx.multi(),
+      hSet: (k, v) => tx.hSet(k, v),
+      zAdd: (k, ...m) => tx.zAdd(k, ...m),
+      exec: async () => {
+        const r = await tx.exec();
+        return Array.isArray(r) ? r : null;
+      },
+      unwatch: () => tx.unwatch(),
+      discard: () => tx.discard(),
+    };
+    return wrapped;
+  },
+};
+
+export const devvitPlatform: Platform = {
+  kv,
+  now: () => Date.now(),
+  ctx: () => ({
+    userId: context.userId,
+    username: context.username,
+    postId: context.postId,
+    subredditName: context.subredditName ?? '',
+  }),
+  reddit: {
+    async submitPost(o) {
+      const base = {
+        subredditName: context.subredditName ?? '',
+        title: o.title,
+        entry: o.entry ?? 'default',
+        ...(o.postData ? { postData: o.postData } : {}),
+        ...(o.textFallback ? { textFallback: { text: o.textFallback } } : {}),
+      };
+      // Posting as the player can be refused (permission not granted yet); fall back to the app account.
+      const post = o.runAsUser
+        ? await reddit.submitCustomPost({ ...base, runAs: 'USER', userGeneratedContent: { text: o.title } }).catch((e) => {
+            console.warn('submitPost as user failed, posting as app:', String(e).slice(0, 160));
+            return reddit.submitCustomPost(base);
+          })
+        : await reddit.submitCustomPost(base);
+      return { id: post.id, url: post.url };
+    },
+    async submitComment(o) {
+      const send = (runAs: 'USER' | 'APP') => {
+        // From the app account, "My pot..." would read as the app's pot: use the named caption.
+        const caption = runAs === 'APP' && o.appCaption ? o.appCaption : o.caption;
+        const text = runAs === 'APP' && o.appCaption ? o.appCaption : o.text;
+        if (o.imageUrl) {
+          const rt = new RichTextBuilder().image({ mediaUrl: o.imageUrl, ...(caption ? { caption } : {}) });
+          if (text && text !== caption) rt.paragraph((p) => p.text({ text }));
+          return reddit.submitComment({ id: asT3(o.postId), richtext: rt, runAs });
+        }
+        return reddit.submitComment({ id: asT3(o.postId), text: text ?? '', runAs });
+      };
+      // Posting as the player can be refused (permission not granted yet); fall back to the app account.
+      const c = o.runAsUser
+        ? await send('USER').catch((e) => {
+            console.warn('submitComment as user failed, posting as app:', String(e).slice(0, 160));
+            return send('APP');
+          })
+        : await send('APP');
+      return { id: c.id };
+    },
+    async setUserFlair(username, text) {
+      await reddit.setUserFlair({ subredditName: context.subredditName ?? '', username, text });
+    },
+    getSnoovatarUrl: (u) => reddit.getSnoovatarUrl(u),
+    async removePost(postId) {
+      const post = await reddit.getPostById(asT3(postId));
+      await post.remove();
+    },
+  },
+  media: {
+    async uploadImage(dataUrl) {
+      const a = await media.upload({ url: dataUrl, type: 'image' });
+      return { mediaId: a.mediaId, mediaUrl: a.mediaUrl };
+    },
+  },
+  settings: {
+    get: (name) => settings.get(name),
+  },
+};

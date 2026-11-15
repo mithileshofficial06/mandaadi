@@ -1,0 +1,40 @@
+import type { ApiError, TodayResponse } from '../../shared/api/types';
+
+export class ApiFailure extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+    readonly status: number
+  ) {
+    super(message);
+  }
+}
+
+async function req<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`/api/${path}`, {
+      method,
+      headers: body === undefined ? {} : { 'content-type': 'application/json' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+  } catch {
+    throw new ApiFailure('network', 'No connection to the harbour. Check your network and try again.', 0);
+  }
+  const text = await res.text();
+  let json: unknown;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+  if (!res.ok) {
+    const e = (json as ApiError | null)?.error;
+    throw new ApiFailure(e?.code ?? 'http', e?.message ?? `Request failed (${res.status}).`, res.status);
+  }
+  return json as T;
+}
+
+export const api = {
+  today: () => req<TodayResponse>('GET', 'today'),
+};

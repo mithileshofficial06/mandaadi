@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
+  "name": "mandaadi",
+  "post": {
+    "dir": "dist/client",
+    "entrypoints": {
+      "default": { "entry": "splash.html", "height": "tall" },
+      "race": { "entry": "race.html" }
+    }
+  },
+  "server": { "dir": "dist/server", "entry": "index.cjs" },
+  "permissions": {
+    "redis": true,
+    "media": true,
+    "realtime": false,
+    "journeys": true,
+    "http": { "enable": false },
+    "reddit": { "enable": true, "scope": "user", "asUser": ["SUBMIT_POST", "SUBMIT_COMMENT"] }
+  },
+  "triggers": {
+    "onAppInstall": "/internal/triggers/install",
+    "onAppUpgrade": "/internal/triggers/upgrade"
+  },
+  "menu": {
+    "items": [
+      {
+        "label": "Mandaadi: post today's race now",
+        "description": "Creates today's race post if it does not exist",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/post-today"
+      }
+    ]
+  },
+  "scripts": { "build": "vite build", "dev": "vite build --watch" },
+  "dev": { "subreddit": "mandaadi_dev" }
+}

@@ -1,0 +1,42 @@
+@font-face {
+  font-family: 'Barlow Condensed';
+  src: url('/fonts/barlow-condensed-latin-600-normal.woff2') format('woff2');
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Barlow Condensed';
+  src: url('/fonts/barlow-condensed-latin-700-normal.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Atkinson Hyperlegible';
+  src: url('/fonts/atkinson-hyperlegible-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Atkinson Hyperlegible';
+  src: url('/fonts/atkinson-hyperlegible-latin-700-normal.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
+  --sea: #0e5e6f;
+  --deep: #0a3d4a;
+  --foam: #f4f1ea;
+  --signal: #ff6b1a;
+  --signal-deep: #d9500a;
+  --sand: #e8c987;
+  --ink: #14212b;
+  --cone: #e5484d;
+  --panel: rgba(12, 28, 36, 0.72);
+  --panel-line: rgba(244, 241, 234, 0.16);
+  --text-dim: #c4d3d6;
+  --f-num: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;
+  --f-ui: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
