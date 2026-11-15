@@ -75,3 +75,10 @@ Then tier B (Reddit features). Avoid: speed boosts / power-ups (break "same wind
 1. Real phone in the Reddit app (Mithilesh), and the 19 Nov feel test with 10 testers.
 2. Feel tuning from tester notes (TURN_MAX, LAG_*, TACK_KEEP, camera).
 3. Item 4 (left for later): demo subreddit, video, write-up, publish after 9 Dec.
+
+## Sailing School + 30-day daily cycle (2026-11-15, late) - live as v0.0.5
+- `tools/gen-courses.ts` generates 30 daily courses (one per Gulf of Mannar place, types rotate, difficulty swings through the month, 1-3 marks, islands, gusts, shoals, currents, shifts) and the School (6 stages x 5 levels: Harbour Mouth, Beating Upwind, Pressure, Reef Country, Tide Race, Monsoon) into `src/shared/content/generated.ts`, with pars. Every course is checked by the autopilot from both sides and the Harbourmaster; par windows: daily 55-98 s, School 32-98 s.
+- Day N races `DAILY[(N - 1) % 30]` (`dailyCourse` in content/school.ts): a 30-day cycle that repeats.
+- School: stars 3 = beat par, 2 = within 12%, 1 = finish; levels unlock in order, a stage needs 8 stars from the previous one. Progress: server hash `school:<uid>` (re-sailed on the server), merged with localStorage for logged-out play.
+- Boards/runs/routes keyed by date AND course id.
+- After any physics change: `npx tsx tools/gen-courses.ts` (the content test fails until pars are current).

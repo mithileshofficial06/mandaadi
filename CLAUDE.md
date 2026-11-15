@@ -36,3 +36,4 @@ Devvit Web 0.15.3, Node 24, Vite 8, TypeScript 6, Preact + Signals, three.js 0.1
 - Devvit: always go through `npm run dv -- <cmd>` / `npm run deploy` (account u/kira_-_06, app `mandaadi-race`, sub r/mandaadi_race_dev). Never plain `devvit`, which uses the Paanai account.
 - Physics changes: bump `PHYSICS_VERSION` in src/shared/core/course.ts (old ghosts are dropped, par is recomputed).
 - Deploy to the dev sub: `npm run deploy` then `npm run dv -- install mandaadi_race_dev` (upload alone does not upgrade the install).
+- Courses: daily cycle + School are generated (`npx tsx tools/gen-courses.ts` -> src/shared/content/generated.ts). Never hand-edit generated.ts.
