@@ -96,3 +96,32 @@ The weekly repeat is gone: 30 different daily courses, more complex (1-3 marks, 
 
 ## Verdict
 **Build on.** The content side is now solid for a daily game. The score is capped by having no players and no real-device testing, not by features. Stop adding features: test, tune courses, fill the subreddit.
+
+---
+
+# Re-rating (2026-11-16, v0.0.8)
+
+| Criterion | Last | Now | Ceiling |
+|---|---|---|---|
+| Delightful UX | 7.5 | 8 | 8.5 |
+| Polish | 7.5 | 8 | 8.5 |
+| Reddit-y | 6.5 | 7 | 8.5 |
+| Daily Content | 7.5 | 8 | 8.5 |
+| **Overall** | **7** | **7.5 / 10** | **8.5 / 10** |
+
+## What moved it
+Courses now have real decisions and rising School targets; School is social (fastest redditor ghost, stars in flair and on the board); fairer attempts (free early restart) and a softer gate; storm squalls; clearer charts; a compact start card. A full daily race and a School level have been played through the real UI on Reddit, and flair was confirmed.
+
+## Findings, ranked
+| # | Severity | Finding | Status | Fix |
+|---|---|---|---|---|
+| 1 | Critical | No real players: the board, ghosts, wake map and School leaders are empty. | Confirmed | 20-50 sailors for several days before judging. |
+| 2 | High | No real phone test in the Reddit app (iOS/Android). | Confirmed | One race on each platform. |
+| 3 | High | No demo video and no public subreddit yet. | Confirmed | Record once the board is busy; open the sub. |
+| 4 | High | Not tested on non-sailors yet (19 Nov). | Confirmed | Watch 5 people play without help. |
+| 5 | Medium | Midnight auto-post not yet seen firing. | Suspected | Check the sub after 00:00 UTC. |
+| 6 | Medium | Bot detection beyond the 20%-under-par rule needs tester input logs. | Confirmed | Calibrate after 19 Nov. |
+| 7 | Low | The squall and the generated storm courses have not been sailed by a person. | Suspected | Play days 5, 12, 19, 26. |
+
+## Verdict
+**Ship-ready as a product; not yet as an entry.** The build is now about as good as it can be made without players. Everything left is people: players, testers, a video.
