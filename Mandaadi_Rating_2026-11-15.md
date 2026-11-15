@@ -37,3 +37,33 @@ It is a good-looking single-player sailing game that is not on Reddit yet. Half 
 
 ## Verdict
 **Fix, then build.** The game layer is strong enough. Stop adding visuals and spend the next 10 days on getting it onto Reddit and building the community loop (tier B). Odds today: an honourable mention is unlikely and Best Daily Game is very unlikely. With tier B live and a demo subreddit that looks busy, a $1k honourable mention is realistic and the top prize is a long shot.
+
+---
+
+# Re-rating after tier B (2026-11-15, night, v0.0.4 live on r/mandaadi_race_dev)
+
+| Criterion | Morning | Now | Ceiling (with players + phone test) |
+|---|---|---|---|
+| Delightful UX | 6.5 | 7 | 8 |
+| Polish | 7 | 7.5 | 8 |
+| Reddit-y | 2 | 6.5 | 8 |
+| Daily Content | 5 | 6.5 | 7.5 |
+| **Overall** | **5** | **6.5 / 10** | **8 / 10** |
+
+## What moved it
+Runs on Reddit; server-verified times; attempts; board; medals and flair; real-player ghosts with name tags; wake map on the splash; share to comments with a postcard; daily post job; races now 64-85 s par; GTA-style camera.
+
+## Findings, ranked
+| # | Severity | Finding | Status | Fix |
+|---|---|---|---|---|
+| 1 | Critical | No real players yet. The board, ghosts and wake map, which are the pitch, are empty, so a judge sees a lone bot race. | Confirmed | Item 4: get 20-50 real sailors into the dev sub for several days before judging. |
+| 2 | High | Daily content repeats weekly: 7 fixed courses, so day 8 equals day 1. | Confirmed | Seed per-date variation (wind angle, gust positions, mark offsets) from the date; keep the course type per weekday. |
+| 3 | High | Never played on a real phone in the Reddit app, and no full race through the real UI on Reddit (API flow and emulated phone only). | Confirmed | Phone race tonight; 19 Nov tester round. |
+| 4 | Medium | Any physically valid log passes, so a scripted autopilot can post Harbourmaster times. | Confirmed | Accept for a hackathon; optional plausibility checks (input count and variety) and hiding Harbourmaster-level times that look bot-like. |
+| 5 | Medium | Attempts are used at the start, so restarting from the pause menu burns one. This may feel harsh. | Confirmed | Label it ("restart uses an attempt") or refund attempts abandoned in the first 10 s. |
+| 6 | Medium | Sailing is still unproven with non-sailors. | Suspected | Watch 5 non-sailors play. |
+| 7 | Low | The finish card is long on small phones. | Suspected | Collapse stats on heights under 700 px. |
+| 8 | Low | 🥇 flair is untested on Reddit. | Suspected | Check after the next gold run. |
+
+## Verdict
+**Build on.** The game is now a real Reddit daily game, not a demo. What keeps it at 6.5 is not code but people (empty board) and the weekly repeat. Fix #2 (a day of work), then spend the rest on #1 and #3.
