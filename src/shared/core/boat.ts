@@ -1,6 +1,6 @@
 // The boat model and the race rules: one 30 Hz tick. Identical on the phone and the server.
 // Integers only (see fixed.ts). All tuning numbers live in TUNE so feel can be adjusted in one place.
-import { BOAT_RADIUS_M, type Course, type Gate, type Mark, ROUND_RADIUS_M, ROUND_SWEEP, VMAX_10 } from './course';
+import { BOAT_RADIUS_M, type Course, type Gate, type Mark, ROUND_RADIUS_M, ROUND_SWEEP, SHOAL_BONUS, SHOAL_RADIUS_M, VMAX_10 } from './course';
 import { GUN_TICK, MAX_TICKS, Q10, UM_PER_M, UM_PER_MM, clamp, fdiv, iabs, isqrt, muldiv, rdiv, umPerTick } from './fixed';
 import { HALF, QUARTER, Q14, bearing, cosA, deg, signedA, sinA, wrapA } from './trig';
 import { windFactor, windFrom } from './wind';
@@ -20,6 +20,10 @@ export const TUNE = {
   LAG_IRONS: 72,
   /** Speed kept when the bow crosses the wind (tack) or the stern does (gybe), Q10. */
   TACK_KEEP: 840,
+  /** A perfect tack (tap again as the bow crosses the wind) keeps this much. */
+  PERFECT_KEEP: 975,
+  /** The perfect-tack window: within this angle of head-to-wind. */
+  PERFECT_WINDOW: 137,
   GYBE_KEEP: 900,
   /** Speed lost per tick at full rudder, in 1/100000 of speed. */
   RUDDER_DRAG: 290,
@@ -72,6 +76,9 @@ export const EV = {
   CLEAR: 128,
   FINISH: 256,
   TOUCH_MARK: 512,
+  PERFECT: 1024,
+  SHOAL: 2048,
+  EARLY_TAP: 4096,
 } as const;
 
 export type Phase = 'prestart' | 'racing' | 'finished' | 'dnf';
@@ -100,6 +107,11 @@ export type BoatState = {
   hits: number;
   tacks: number;
   finishTick: number;
+  perfectArmed: boolean;
+  perfects: number;
+  /** Bitmask of shoals hauled, and the bonus ticks earned. */
+  shoals: number;
+  bonus: number;
   /** Events from the last tick (EV flags). */
   ev: number;
   /** Local wind factor at the boat (Q10) and wind direction, for the HUD. */
@@ -192,6 +204,10 @@ export function initialState(course: Course): BoatState {
     hits: 0,
     tacks: 0,
     finishTick: 0,
+    perfectArmed: false,
+    perfects: 0,
+    shoals: 0,
+    bonus: 0,
     ev: 0,
     wind: Q10,
     windFrom: w,
@@ -228,6 +244,10 @@ export function step(s: BoatState, course: Course, input: TickInput): BoatState 
   if (input.tack && s.tackTo < 0) {
     // Mirror the heading across the wind: same angle to the wind on the other side.
     s.tackTo = wrapA(w - twa0);
+  } else if (input.tack && s.tackTo >= 0 && !s.perfectArmed && iabs(twa0) < QUARTER) {
+    // Second tap during a tack: a "roll tack" if timed as the bow crosses the wind.
+    if (iabs(twa0) <= TUNE.PERFECT_WINDOW) s.perfectArmed = true;
+    else s.ev |= EV.EARLY_TAP;
   }
   const steer = clamp(input.steer | 0, -TUNE.STEER_MAX, TUNE.STEER_MAX);
   s.steer = steer;
@@ -261,8 +281,13 @@ export function step(s: BoatState, course: Course, input: TickInput): BoatState 
   const twa1 = signedA(s.h - w);
   if (twa0 !== 0 && twa1 !== 0 && Math.sign(twa0) !== Math.sign(twa1)) {
     if (iabs(twa0) < QUARTER && iabs(twa1) < QUARTER) {
-      s.v = muldiv(s.v, TUNE.TACK_KEEP, Q10);
+      s.v = muldiv(s.v, s.perfectArmed ? TUNE.PERFECT_KEEP : TUNE.TACK_KEEP, Q10);
       s.ev |= EV.TACK;
+      if (s.perfectArmed) {
+        s.ev |= EV.PERFECT;
+        s.perfects++;
+      }
+      s.perfectArmed = false;
       s.tacks++;
     } else if (iabs(twa0) >= QUARTER && iabs(twa1) >= QUARTER) {
       s.v = muldiv(s.v, TUNE.GYBE_KEEP, Q10);
@@ -286,6 +311,19 @@ export function step(s: BoatState, course: Course, input: TickInput): BoatState 
   const y0 = s.y;
   s.x += muldiv(s.v, sinA(s.h), Q14);
   s.y += muldiv(s.v, cosA(s.h), Q14);
+
+  // ---- Current: the water itself moves the boat ----
+  for (const cu of course.currents ?? []) {
+    const dx = fdiv(s.x - cu.x * UM_PER_M, UM_PER_MM);
+    const dy = fdiv(s.y - cu.y * UM_PER_M, UM_PER_MM);
+    const r = cu.r * 1000;
+    if (iabs(dx) >= r || iabs(dy) >= r) continue;
+    const d = isqrt(dx * dx + dy * dy);
+    if (d >= r) continue;
+    const flow = muldiv(muldiv(cu.speed, 100_000, 30), r - d, r); // um per tick
+    s.x += muldiv(flow, sinA(cu.dir), Q14);
+    s.y += muldiv(flow, cosA(cu.dir), Q14);
+  }
 
   // ---- Islands and marks are solid ----
   let touching = false;
@@ -342,6 +380,21 @@ export function step(s: BoatState, course: Course, input: TickInput): BoatState 
   // ---- Marks, in order ----
   if (s.started && s.leg < course.marks.length) roundMark(s, course.marks[s.leg]!);
 
+  // ---- Fish shoals ----
+  if (s.started && course.shoals) {
+    const rr = SHOAL_RADIUS_M * 1000;
+    course.shoals.forEach((f, i) => {
+      if (s.shoals & (1 << i)) return;
+      const dx = fdiv(s.x, UM_PER_MM) - mm(f.x);
+      const dy = fdiv(s.y, UM_PER_MM) - mm(f.y);
+      if (iabs(dx) < rr && iabs(dy) < rr && dx * dx + dy * dy < rr * rr) {
+        s.shoals |= 1 << i;
+        s.bonus += SHOAL_BONUS;
+        s.ev |= EV.SHOAL;
+      }
+    });
+  }
+
   // ---- Finish ----
   if (s.started && s.leg >= course.marks.length && crossesGate(course.finish, x0, y0, s.x, s.y)) {
     if (gateSide(course.finish, s.x, s.y) === finishSide(course)) {
@@ -384,5 +437,5 @@ function roundMark(s: BoatState, m: Mark): void {
 
 /** Official race time in ticks (from the gun, with penalties). */
 export function raceTicks(s: BoatState): number {
-  return s.finishTick - GUN_TICK + s.penalty;
+  return Math.max(1, s.finishTick - GUN_TICK + s.penalty - s.bonus);
 }

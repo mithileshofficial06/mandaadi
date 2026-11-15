@@ -33,6 +33,7 @@ import { type Spray, createSpray } from '../three/spray';
 import { landOf } from '../three/world';
 import { fmtTicks, hud } from './hudState';
 import { Minimap } from './minimap';
+import { type Shoals, createShoals } from '../three/shoals';
 
 const RAD = (2 * Math.PI) / ANG;
 /** Sun high and off to one side of the wind, so the glitter path crosses the view but never floods it. */
@@ -110,6 +111,7 @@ export class Race {
   private birds: Birds;
   private ring: WindRing;
   private mini: Minimap | null = null;
+  private shoals: Shoals | null = null;
   private runTime = 0;
   private runHinted = false;
   private spray: Spray;
@@ -166,6 +168,10 @@ export class Race {
     const isl = course.islands.map((i) => i.parts[0]!).map((p) => ({ x: p.x, y: p.y }));
     this.birds = createBirds([...isl, { x: -100, y: 120 }, ...(course.marks[0] ? [course.marks[0]] : [])]);
     this.scene.add(this.birds.mesh);
+    if (course.shoals?.length) {
+      this.shoals = createShoals(course.shoals);
+      this.scene.add(this.shoals.group);
+    }
     this.spray = createSpray();
     this.scene.add(this.spray.points);
     this.scene.add(this.water.mesh);
@@ -426,7 +432,8 @@ export class Race {
       }
       hud.clock.value = `-${fmtTicks(GUN_TICK - s.tick).slice(3)}`;
     } else {
-      hud.clock.value = fmtTicks(s.tick - GUN_TICK + s.penalty);
+      hud.clock.value = fmtTicks(s.tick - GUN_TICK + s.penalty - s.bonus);
+      hud.tackWindow.value = s.tackTo >= 0 && Math.abs(twa) < ANG / 4 ? (Math.abs(twa) <= 137 ? 2 : 1) : 0;
       if (hud.phase.value === 'countdown') hud.phase.value = 'racing';
     }
 
@@ -502,6 +509,18 @@ export class Race {
       this.marks.setActive(s.leg, true);
       this.marks.setLaylines(this.opts.laylines, s.windFrom * RAD);
       this.marks.pulse(s.leg - 1);
+    }
+    if (e & EV.PERFECT) {
+      this.toast('Perfect tack!', 'good', 'Rolled through the wind and kept your speed', 1800);
+      sfx.bell();
+      this.spray.emit(16, s.x / UM_PER_M, s.y / UM_PER_M, s.h * RAD, (s.v * TICK_HZ) / UM_PER_M, 1.1);
+    }
+    if (e & EV.EARLY_TAP) this.toast('Too early', 'info', 'Tap again just as the bow crosses the wind', 1600);
+    if (e & EV.SHOAL) {
+      this.toast('Net hauled: -1.0 s', 'good', 'Fish shoal caught', 2000);
+      sfx.tack();
+      this.shoals?.take(s.shoals);
+      vibrate([20, 40, 20]);
     }
     if (e & EV.START) {
       this.marks.setActive(s.leg, true);
@@ -664,6 +683,7 @@ export class Race {
     this.water.update(t);
     this.land.update(t);
     this.birds.update(t);
+    this.shoals?.update(t);
     this.marks.update(t);
 
     const warn = Math.max(0, 1 - (Math.abs(twa) - NO_GO * RAD) / 0.35);
@@ -712,6 +732,7 @@ export class Race {
             nextMark: !s.started ? 0 : s.leg < this.course.marks.length ? s.leg : -1,
             trail: this.route.slice(-60),
             others: this.otherBoats(),
+            shoals: (this.course.shoals ?? []).map((f, i) => ({ ...f, taken: (s.shoals & (1 << i)) !== 0 })),
             puffs: this.course.puffs.map((p) => {
               const c = puffCentre(this.course, p, s.tick);
               return { x: c.x / UM_PER_M, y: c.y / UM_PER_M, r: p.r, k: p.k / 100 };

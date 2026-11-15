@@ -40,6 +40,8 @@ export const hud = {
   toast: signal<Toast | null>(null),
   paused: signal(false),
   go: signal(false),
+  /** 0 no tack in progress, 1 tacking (tap soon), 2 tap now for a perfect tack. */
+  tackWindow: signal(0),
   camMode: signal<'chase' | 'low' | 'top'>('chase'),
   marker: signal<{ x: number; y: number; edge: boolean; angle: number; label: string; dist: number } | null>(null),
   error: signal<string | null>(null),

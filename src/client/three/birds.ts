@@ -37,7 +37,7 @@ function gullGeometry(): BufferGeometry {
 
 export type Birds = { mesh: InstancedMesh; update(time: number): void };
 
-export function createBirds(centres: Array<{ x: number; y: number }>, count = 10): Birds {
+export function createBirds(centres: Array<{ x: number; y: number }>, count = 10, opts: { low?: boolean } = {}): Birds {
   const uniforms = { uTime: { value: 0 } };
   const mat = new MeshLambertMaterial({ vertexColors: true, side: DoubleSide });
   mat.onBeforeCompile = (sh) => {
@@ -60,7 +60,7 @@ export function createBirds(centres: Array<{ x: number; y: number }>, count = 10
   const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   const gulls: Gull[] = Array.from({ length: count }, (_, i) => {
     const c = centres[i % centres.length]!;
-    return { cx: c.x + (rnd() - 0.5) * 40, cy: c.y + (rnd() - 0.5) * 40, r: 18 + rnd() * 40, h: 12 + rnd() * 18, w: 0.18 + rnd() * 0.14, a: rnd() * 6.28, dir: rnd() > 0.5 ? 1 : -1 };
+    return opts.low ? { cx: c.x, cy: c.y, r: 5 + rnd() * 6, h: 4 + rnd() * 5, w: 0.5 + rnd() * 0.3, a: rnd() * 6.28, dir: rnd() > 0.5 ? 1 : -1 } : { cx: c.x + (rnd() - 0.5) * 40, cy: c.y + (rnd() - 0.5) * 40, r: 18 + rnd() * 40, h: 12 + rnd() * 18, w: 0.18 + rnd() * 0.14, a: rnd() * 6.28, dir: rnd() > 0.5 ? 1 : -1 };
   });
   const m = new Matrix4();
   const q = new Quaternion();

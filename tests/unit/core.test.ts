@@ -119,3 +119,46 @@ describe('race', () => {
     expect(decodeInputs('Ag')).toBeNull();
   });
 });
+
+describe('skills', () => {
+  const course = { ...SANDBAR_SPRINT };
+  it('a perfect tack keeps more speed than a plain one', () => {
+    const run = (perfect: boolean) => {
+      const s = initialState(course);
+      for (let t = 0; t < 200; t++) step(s, course, { steer: 0, tack: false });
+      step(s, course, { steer: 0, tack: true });
+      let tapped = false;
+      for (let t = 0; t < 120; t++) {
+        const twa = Math.abs(((s.h - s.windFrom + 6144) % 4096) - 2048);
+        const tap = perfect && !tapped && twa < 120;
+        if (tap) tapped = true;
+        step(s, course, { steer: 0, tack: tap });
+        if (s.ev & 1) return { v: s.v, perfects: s.perfects };
+      }
+      return { v: 0, perfects: -1 };
+    };
+    const plain = run(false);
+    const good = run(true);
+    expect(good.perfects).toBe(1);
+    expect(plain.perfects).toBe(0);
+    expect(good.v).toBeGreaterThan(plain.v);
+  });
+  it('a shoal on the line takes a second off', () => {
+    const { log } = pilotLog();
+    const plain = simulate(SANDBAR_SPRINT, log);
+    const route = plain.route.map(([x, y]) => ({ x: x / 10, y: y / 10 }));
+    const withShoal = { ...SANDBAR_SPRINT, shoals: [route[12]!] };
+    const r = simulate(withShoal, log);
+    expect(r.ticks).toBe(plain.ticks - 30);
+  });
+  it('a current pushes a drifting boat', () => {
+    const c2 = { ...SANDBAR_SPRINT, currents: [{ x: 200, y: 49, r: 60, dir: deg(90), speed: 8 }] };
+    const a = initialState(SANDBAR_SPRINT);
+    const b = initialState(c2);
+    for (let t = 0; t < 60; t++) {
+      step(a, SANDBAR_SPRINT, { steer: 0, tack: false });
+      step(b, c2, { steer: 0, tack: false });
+    }
+    expect(b.x).toBeGreaterThan(a.x + 1_000_000);
+  });
+});

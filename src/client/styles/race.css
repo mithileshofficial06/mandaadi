@@ -123,6 +123,9 @@ body { font-family: var(--f-ui); color: var(--foam); -webkit-tap-highlight-color
 .rudder__label { position: absolute; bottom: 0; font: 600 13px/1 var(--f-num); letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6); }
 .tackbtn { width: 78px; height: 78px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.9); background: rgba(12, 28, 36, 0.72); color: #fff; font: 700 20px/1 var(--f-num); letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); touch-action: manipulation; transition: transform 0.08s ease, background 0.2s ease; }
 .tackbtn:active { transform: scale(0.93); }
+.tackbtn.is-turning { box-shadow: 0 0 0 6px rgba(255, 210, 122, 0.35), 0 8px 22px rgba(0, 0, 0, 0.3); }
+.tackbtn.is-now { background: #ffd27a; color: var(--ink); border-color: #fff; transform: scale(1.08); box-shadow: 0 0 0 10px rgba(255, 210, 122, 0.45); }
+.tackhint { position: absolute; right: 12px; bottom: 96px; max-width: 150px; text-align: right; font: 600 14px/1.2 var(--f-num); letter-spacing: 0.04em; text-transform: uppercase; color: #ffd27a; text-shadow: 0 1px 4px rgba(0,0,0,0.7); }
 .tackbtn.is-hot { background: var(--signal); border-color: #fff; animation: pulse 1s ease-in-out infinite; }
 
 /* ---------- finish ---------- */

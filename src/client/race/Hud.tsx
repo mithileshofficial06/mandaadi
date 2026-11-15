@@ -338,15 +338,16 @@ function Controls(props: HudProps) {
         <span class="rudder__label">Drag to steer</span>
       </div>
       <button
-        class={`tackbtn ${hud.inCone.value ? 'is-hot' : ''}`}
+        class={`tackbtn ${hud.inCone.value && hud.tackWindow.value === 0 ? 'is-hot' : ''} ${hud.tackWindow.value === 1 ? 'is-turning' : ''} ${hud.tackWindow.value === 2 ? 'is-now' : ''}`}
         onPointerDown={(e) => {
           e.stopPropagation();
           props.onTack();
         }}
         aria-label={down ? 'Gybe: turn the stern through the wind' : 'Tack: turn the bow through the wind'}
       >
-        {down ? 'Gybe' : 'Tack'}
+        {hud.tackWindow.value === 2 ? 'Tap!' : down ? 'Gybe' : 'Tack'}
       </button>
+      {hud.tackWindow.value > 0 && <span class="tackhint">Tap again as the bow crosses the wind</span>}
     </div>
   );
 }

@@ -37,6 +37,11 @@ export const SANDBAR_SPRINT: Course = {
     // Middle lull.
     { x: 200, y: 140, r: 30, k: 80, drift: 0 },
   ],
+  // Off the obvious lines: worth a second each if the detour is short enough.
+  shoals: [
+    { x: 150, y: 196 },
+    { x: 246, y: 128 },
+  ],
 };
 
 export const COURSES: Course[] = [SANDBAR_SPRINT];

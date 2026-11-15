@@ -21,6 +21,11 @@ export type Island = { parts: Array<Pt & { r: number }>; palms: number };
  */
 export type Puff = Pt & { r: number; k: number; drift: number };
 
+/** A fish shoal: sail within SHOAL_RADIUS_M to haul the net for a time bonus. */
+export type Shoal = Pt;
+/** A current patch: water flowing towards `dir` (angle units) at `speed` dm/s, fading to 0 at r. */
+export type Current = Pt & { r: number; dir: number; speed: number };
+
 export type Wind = {
   /** Direction the wind blows FROM, in angle units. */
   from: number;
@@ -41,7 +46,13 @@ export type Course = {
   finish: Gate;
   islands: Island[];
   puffs: Puff[];
+  shoals?: Shoal[];
+  currents?: Current[];
 };
+
+export const SHOAL_RADIUS_M = 7;
+/** Bonus for each shoal (ticks off the race time). */
+export const SHOAL_BONUS = 30;
 
 export const COURSE_SIZE_M = 400;
 /** Max boat speed (m/s x10) by wind strength. */
