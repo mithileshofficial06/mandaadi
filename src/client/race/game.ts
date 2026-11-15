@@ -87,6 +87,13 @@ export class Race {
   private lastCountdown = 4;
   private inGust = false;
   private onFinish: ((log: InputRecorder['log'], s: BoatState) => void) | null = null;
+  private route: Array<[number, number]> = [];
+  private ghostRoute: Array<[number, number]> = [];
+  private topSpeed = 0;
+  private paused = false;
+  private toastId = 0;
+  private toastTimer = 0;
+  private finishHinted = false;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -226,9 +233,12 @@ export class Race {
 
   /** Idle render loop for the start screen (water and palms move). */
   idle(): void {
+    let last = performance.now();
     const tick = (now: number) => {
       if (this.running) return;
-      this.renderFrame(0.016, now / 1000);
+      const dt = Math.min(0.1, Math.max(0, (now - last) / 1000));
+      last = now;
+      this.renderFrame(dt);
       this.raf = requestAnimationFrame(tick);
     };
     this.raf = requestAnimationFrame(tick);
@@ -241,6 +251,40 @@ export class Race {
     window.removeEventListener('resize', this.resize);
     sfx.stopMotion();
     this.renderer.dispose();
+  }
+
+  private toast(text: string, kind: 'good' | 'bad' | 'info', sub?: string, ms = 2600): void {
+    const id = ++this.toastId;
+    hud.toast.value = { id, text, kind, ...(sub ? { sub } : {}) };
+    window.clearTimeout(this.toastTimer);
+    this.toastTimer = window.setTimeout(() => {
+      if (hud.toast.value?.id === id) hud.toast.value = null;
+    }, ms);
+  }
+
+  /** Pause (help sheet open). The race clock is simulation time, so pausing costs nothing. */
+  pause(): void {
+    if (!this.running || this.paused) return;
+    this.paused = true;
+    this.running = false;
+    hud.paused.value = true;
+    sfx.stopMotion();
+    cancelAnimationFrame(this.raf);
+    this.idle();
+  }
+
+  resume(): void {
+    if (!this.paused) return;
+    this.paused = false;
+    hud.paused.value = false;
+    cancelAnimationFrame(this.raf);
+    this.running = true;
+    this.last = performance.now();
+    this.raf = requestAnimationFrame(this.loop);
+  }
+
+  get isRacing(): boolean {
+    return this.running && !this.paused;
   }
 
   private setPrompt(text: string | null, stage = 0): void {
@@ -281,13 +325,26 @@ export class Race {
     this.handleEvents(s);
 
     const vm = vmax(this.course);
-    hud.speed.value = Math.max(0, (s.v * TICK_HZ) / UM_PER_M) * 1.944;
+    if (s.tick % 6 === 0) {
+      this.route.push([s.x / UM_PER_M, s.y / UM_PER_M]);
+      this.ghostRoute.push([this.ghost.x / UM_PER_M, this.ghost.y / UM_PER_M]);
+    }
+    const kn = Math.max(0, (s.v * TICK_HZ) / UM_PER_M) * 1.944;
+    if (s.tick > GUN_TICK) this.topSpeed = Math.max(this.topSpeed, kn);
+    hud.speed.value = kn;
     hud.gust.value = Math.round(((s.wind - Q10) * 100) / Q10);
     hud.steer.value = this.input.value;
     const twa = signedA(s.h - s.windFrom);
     const inCone = Math.abs(twa) < NO_GO;
     hud.inCone.value = inCone;
     hud.downwind.value = Math.abs(twa) > ANG / 4;
+    const deg = (Math.abs(twa) * 360) / ANG;
+    hud.status.value = inCone ? 'irons' : deg < 62 ? 'upwind' : deg < 128 ? 'reach' : deg < 165 ? 'downwind' : 'run';
+    // Near the finish: say so once.
+    if (s.started && s.leg >= this.course.marks.length && !this.finishHinted && hud.legDist.value < 40) {
+      this.finishHinted = true;
+      this.toast('Cross the line to finish', 'info');
+    }
     if (s.tick < GUN_TICK) {
       const c = Math.ceil((GUN_TICK - s.tick) / TICK_HZ);
       if (c !== this.lastCountdown) {
@@ -355,12 +412,17 @@ export class Race {
     if (e & EV.ROUND) {
       sfx.bell();
       vibrate([30, 60, 30]);
+      const more = s.leg < this.course.marks.length;
+      this.toast(`Mark ${s.leg} rounded · ${fmtTicks(s.tick - GUN_TICK + s.penalty)}`, 'good', more ? `On to mark ${s.leg + 1}` : 'Now race back through the line', 3200);
       this.marks.setActive(s.leg, true);
       this.marks.setLaylines(this.opts.laylines, s.windFrom * RAD);
     }
     if (e & EV.START) {
       this.marks.setActive(s.leg, true);
       hud.banner.value = null;
+      const late = (s.tick - GUN_TICK) / TICK_HZ;
+      if (late < 1.2) this.toast('Great start', 'good', `Over the line ${late.toFixed(1)} s after the gun`);
+      else this.toast('You are racing', 'info', `Over the line ${late.toFixed(1)} s after the gun`);
     }
     if (e & EV.EARLY) hud.banner.value = 'Over early: go back behind the line';
     if (e & EV.CLEAR) hud.banner.value = null;
@@ -369,6 +431,7 @@ export class Race {
       vibrate(180);
       this.rig.bump(0.8);
       hud.penaltyFlash.value = hud.penaltyFlash.value + 1;
+      this.toast('Ran aground: +2.0 s', 'bad', 'Steer away from the sand');
     }
     if (e & EV.FINISH) this.finish(s);
   }
@@ -380,7 +443,19 @@ export class Race {
     const g = this.ghost;
     const vsGhost = g.phase === 'finished' ? ticks - raceTicks(g) : null;
     hud.clock.value = fmtTicks(ticks);
-    hud.result.value = { ticks, tacks: s.tacks, hits: s.hits, penalties: s.penalty, vsGhost, finished: true };
+    this.route.push([s.x / UM_PER_M, s.y / UM_PER_M]);
+    hud.result.value = {
+      ticks,
+      tacks: s.tacks,
+      hits: s.hits,
+      penalties: s.penalty,
+      vsGhost,
+      finished: true,
+      route: this.route.slice(),
+      ghostRoute: this.ghostRoute.slice(),
+      topSpeed: this.topSpeed,
+    };
+    hud.toast.value = null;
     hud.phase.value = 'finished';
     hud.prompt.value = null;
     hud.banner.value = null;
@@ -499,6 +574,11 @@ export class Race {
     const tgt = this.nextTarget(s);
     const aim = Math.atan2(tgt.x - bx, tgt.y - by);
     this.rig.update(Math.max(dt, 0.001), bx, by, bh, (Math.max(0, s.v) * TICK_HZ) / UM_PER_M, aim, t);
+    if (hud.phase.value !== 'finished') this.updateHudFrame(tgt, aim, bx, by, windFrom, s);
+    this.renderer.render(this.scene, this.rig.camera);
+  }
+
+  private updateHudFrame(tgt: { x: number; y: number }, aim: number, bx: number, by: number, windFrom: number, s: BoatState): void {
     hud.legDist.value = Math.round(Math.hypot(tgt.x - bx, tgt.y - by));
     // Arrow relative to the camera's view direction.
     const camYaw = Math.atan2(this.rig.camera.position.x - bx, -this.rig.camera.position.z - by) + Math.PI;
@@ -506,7 +586,5 @@ export class Race {
     hud.windRel.value = windFrom - camYaw;
     hud.leg.value = !s.started ? 'Start' : s.leg < this.course.marks.length ? `Mark ${s.leg + 1}` : 'Finish';
     this.updateMarker(tgt, hud.legDist.value, s);
-
-    this.renderer.render(this.scene, this.rig.camera);
   }
 }

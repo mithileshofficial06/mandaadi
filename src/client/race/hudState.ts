@@ -1,6 +1,20 @@
 import { signal } from '@preact/signals';
 
-export type RaceResult = { ticks: number; tacks: number; hits: number; penalties: number; vsGhost: number | null; finished: boolean };
+export type RouteXY = Array<[number, number]>;
+export type RaceResult = {
+  ticks: number;
+  tacks: number;
+  hits: number;
+  penalties: number;
+  vsGhost: number | null;
+  finished: boolean;
+  route: RouteXY;
+  ghostRoute: RouteXY;
+  topSpeed: number;
+};
+
+export type SailStatus = 'irons' | 'upwind' | 'reach' | 'downwind' | 'run';
+export type Toast = { id: number; text: string; sub?: string; kind: 'good' | 'bad' | 'info' };
 
 export const hud = {
   phase: signal<'loading' | 'ready' | 'countdown' | 'racing' | 'finished'>('loading'),
@@ -22,6 +36,9 @@ export const hud = {
   muted: signal(false),
   result: signal<RaceResult | null>(null),
   windRel: signal(0),
+  status: signal<SailStatus>('upwind'),
+  toast: signal<Toast | null>(null),
+  paused: signal(false),
   marker: signal<{ x: number; y: number; edge: boolean; angle: number; label: string; dist: number } | null>(null),
   error: signal<string | null>(null),
 };

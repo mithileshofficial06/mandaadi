@@ -20,6 +20,13 @@ await page.screenshot({ path: `${out}/0-splash.png` });
 
 await page.goto(`${base}/race.html?user=alice`);
 await page.waitForTimeout(2500);
+await page.screenshot({ path: `${out}/1a-guide.png` });
+await page.getByRole('button', { name: 'Next' }).click();
+await page.waitForTimeout(1800);
+await page.screenshot({ path: `${out}/1b-guide2.png` });
+await page.getByRole('button', { name: 'Next' }).click();
+await page.getByRole('button', { name: 'Got it' }).click();
+await page.waitForTimeout(2500);
 await page.screenshot({ path: `${out}/1-start.png` });
 
 await page.getByRole('button', { name: 'Start the race' }).click();

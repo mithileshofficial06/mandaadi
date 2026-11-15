@@ -368,7 +368,8 @@ export function createBoat(livery: Livery, opts: { ghost?: boolean } = {}): Boat
       '#include <map_fragment>',
       `#ifdef USE_MAP
         vec2 mUv = vMapUv;
-        if (!gl_FrontFacing) mUv.x = 1.0 - mUv.x;
+        // the front face looks to starboard, where aft is on the viewer's left
+        if (gl_FrontFacing) mUv.x = 1.0 - mUv.x;
         diffuseColor *= texture2D(map, mUv);
       #endif`
     );
