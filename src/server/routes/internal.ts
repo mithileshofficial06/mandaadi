@@ -30,7 +30,15 @@ internal.post('/triggers/install', async (c) => {
   }
   return c.json({ status: 'ok' });
 });
-internal.post('/triggers/upgrade', (c) => c.json({ status: 'ok' }));
+// Every new version: make sure today's race is posted (once per day, so this is safe to repeat).
+internal.post('/triggers/upgrade', async (c) => {
+  try {
+    await postDay(today());
+  } catch (e) {
+    console.warn('upgrade post failed:', String(e).slice(0, 200));
+  }
+  return c.json({ status: 'ok' });
+});
 
 // Scheduler, 00:00 UTC: a new race every day.
 internal.post('/cron/daily-rollover', async (c) => {

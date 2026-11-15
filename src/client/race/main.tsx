@@ -211,7 +211,7 @@ function newRace(): Race {
   const done = racesDone();
   raceGen++;
   token = null;
-  const r = new Race(canvas, course, { coach: done < 2, laylines: done < 3, reducedMotion: reduced, livery: myLivery(), ...(replayLog ? { replay: replayLog } : params.get('autopilot') ? {} : hud.tab.value === 'school-level' ? (schoolRivals.length ? { rivals: schoolRivals } : {}) : isToday() && rivals.length ? { rivals } : {}) });
+  const r = new Race(canvas, course, { coach: done < 2, laylines: done < 3, reducedMotion: reduced, livery: myLivery(), autopilot: !replayLog && !!hud.daily.value?.dev && store.get('mandaadi.autopilot') === '1', ...(replayLog ? { replay: replayLog } : params.get('autopilot') ? {} : hud.tab.value === 'school-level' ? (schoolRivals.length ? { rivals: schoolRivals } : {}) : isToday() && rivals.length ? { rivals } : {}) });
   r.setOnFinish((log) => {
     if (!replayLog) store.set(RACES_KEY, String(racesDone() + 1));
     lastLog = log.slice();

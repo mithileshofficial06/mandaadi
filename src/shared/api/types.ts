@@ -22,6 +22,8 @@ export type TodayResponse = {
   top: BoardRow | null;
   /** Kept on the server because Reddit gives every app version a fresh browser storage. */
   profile: { livery: LiveryDto | null; finishedEver: boolean };
+  /** Only on the private playtest subreddit (*_dev): test tools such as the autopilot. */
+  dev: boolean;
 };
 
 export type StartResponse = { ranked: true; token: string; attempts: { used: number; max: number } } | { ranked: false; reason: 'login' | 'attempts' | 'old-day' | 'course' };

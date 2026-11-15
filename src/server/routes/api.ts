@@ -25,6 +25,7 @@ api.get('/today', async (c) => {
     sailors: b.sailors,
     top: b.rows[0] ?? null,
     profile: prof,
+    dev: /_dev$/i.test(ctx.subredditName),
   };
   return c.json(res);
 });

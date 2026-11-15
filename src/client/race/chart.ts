@@ -153,10 +153,48 @@ export function drawChart(cv: HTMLCanvasElement, course: Course, o: ChartOpts = 
     g.stroke();
   }
 
-  // Wind arrow, top right
+  // Currents: a faint ring with flow arrows (they push the boat).
+  for (const c of course.currents ?? []) {
+    const cx = X(c.x);
+    const cy = Y(c.y);
+    const R = c.r * s;
+    const t = (c.dir / 4096) * Math.PI * 2;
+    const dx = Math.sin(t);
+    const dy = -Math.cos(t);
+    g.fillStyle = 'rgba(120,214,200,0.08)';
+    g.beginPath();
+    g.arc(cx, cy, R, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = 'rgba(160,230,220,0.55)';
+    g.lineWidth = 1.6;
+    for (const [ox2, oy2] of [[0, 0], [-dy * R * 0.45, dx * R * 0.45], [dy * R * 0.45, -dx * R * 0.45]] as const) {
+      const L = Math.min(14, R * 0.4);
+      const x0 = cx + ox2 - dx * L;
+      const y0 = cy + oy2 - dy * L;
+      const x1 = cx + ox2 + dx * L;
+      const y1 = cy + oy2 + dy * L;
+      g.beginPath();
+      g.moveTo(x0, y0);
+      g.lineTo(x1, y1);
+      g.moveTo(x1 - dx * 5 - dy * 4, y1 - dy * 5 + dx * 4);
+      g.lineTo(x1, y1);
+      g.lineTo(x1 - dx * 5 + dy * 4, y1 - dy * 5 - dx * 4);
+      g.stroke();
+    }
+  }
+
+  // Wind arrow in the first corner with no mark, island or shoal under it.
+  const busy = [...course.marks, ...(course.shoals ?? []), ...course.islands.flatMap((i) => i.parts), course.start.a, course.start.b, { x: (course.start.a.x + course.start.b.x) / 2, y: course.start.a.y }].map((q) => ({ x: X(q.x), y: Y(q.y) }));
+  const corners: Array<[number, number]> = [
+    [w - 22, 24],
+    [22, 24],
+    [w - 22, h - 46],
+    [22, h - 46],
+  ];
+  const [wx, wy] = corners.find(([cx, cy]) => !busy.some((q) => Math.abs(q.x - cx) < 26 && q.y > cy - 22 && q.y < cy + 36)) ?? corners[0]!;
   const a = (course.wind.from / 4096) * Math.PI * 2;
   g.save();
-  g.translate(w - 22, 24);
+  g.translate(wx, wy);
   g.rotate(a + Math.PI);
   g.strokeStyle = '#f4f1ea';
   g.lineWidth = 2.2;
@@ -173,7 +211,7 @@ export function drawChart(cv: HTMLCanvasElement, course: Course, o: ChartOpts = 
   g.fillStyle = 'rgba(244,241,234,0.75)';
   g.font = '600 11px "Barlow Condensed", sans-serif';
   g.textAlign = 'center';
-  g.fillText('WIND', w - 22, 50);
+  g.fillText('WIND', wx, wy + 26);
 }
 
 function strokeRoute(

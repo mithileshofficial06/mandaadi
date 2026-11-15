@@ -93,6 +93,12 @@ function build(id: string, name: string, s: Spec, seed: number): Course {
     const lull = k > 0 && r.chance(0.25);
     puffs.push({ x: r.int(90, 310), y: r.int(90, 320), r: r.int(26, 50), k: lull ? r.int(78, 88) : r.int(118, 118 + Math.round(24 * (0.5 + s.d / 2))), drift: r.int(0, 22) });
   }
+  if (s.type === 'storm') {
+    // The squall: one big, strong gust front that sweeps down the course from upwind.
+    // Its own random stream, so adding it leaves every other kind of course unchanged.
+    const q = rng(seed ^ 0x5a17);
+    puffs.push({ x: q.int(140, 260), y: q.int(330, 380), r: q.int(70, 90), k: q.int(148, 158), drift: q.int(32, 44) });
+  }
   const shoals: Shoal[] = [];
   const nShoal = r.int(s.shoals[0], s.shoals[1]);
   const legs = [{ x: 200, y: 60 }, ...marks, { x: 200, y: 60 }];

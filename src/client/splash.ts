@@ -102,7 +102,9 @@ function draw(course: Course): void {
   }
   // wind arrow (top right)
   const a = (course.wind.from / 4096) * Math.PI * 2;
-  const cx = w - 30;
+  // first top corner with no mark under it
+  const clear = (x: number) => !course.marks.some((m) => Math.abs(X(m.x) - x) < 30 && Y(m.y) < 64);
+  const cx = clear(w - 30) ? w - 30 : 30;
   const cy = 30;
   g.save();
   g.translate(cx, cy);

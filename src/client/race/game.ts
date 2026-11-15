@@ -119,7 +119,7 @@ const vibrate = (p: number | number[]) => {
   }
 };
 
-export type RaceOpts = { coach: boolean; laylines: boolean; reducedMotion: boolean; livery?: Livery; replay?: InputLog; rivals?: Rival[] };
+export type RaceOpts = { coach: boolean; laylines: boolean; reducedMotion: boolean; livery?: Livery; replay?: InputLog; rivals?: Rival[]; autopilot?: boolean };
 
 export class Race {
   private renderer: WebGLRenderer;
@@ -160,6 +160,7 @@ export class Race {
   private sea: SeaLife;
   private festival: Festival;
   private place = 0;
+  private squallSeen = new Set<object>();
   private mini: Minimap | null = null;
   private shoals: Shoals | null = null;
   private runTime = 0;
@@ -292,7 +293,7 @@ export class Race {
     }
     this.pilot = new Pilot(course, HARBOURMASTER);
 
-    if (new URLSearchParams(location.search).get('autopilot')) this.auto = new Pilot(course);
+    if (new URLSearchParams(location.search).get('autopilot') || opts.autopilot) this.auto = new Pilot(course);
     if (opts.replay) {
       // Replay: the same race re-sailed from your recorded inputs, faster, with the low camera.
       this.player = new InputPlayer(opts.replay);
@@ -540,6 +541,7 @@ export class Race {
     this.stepGhost();
     this.handleEvents(s);
     if (s.tick % 6 === 0 && s.tick > GUN_TICK) this.updatePlace(s);
+    if (s.tick % 15 === 0 && s.tick > GUN_TICK) this.watchSquall(s);
 
     const vm = vmax(this.course);
     if (s.tick % 6 === 0) {
@@ -939,6 +941,21 @@ export class Race {
     const t = this.nextTarget(b);
     const d = Math.hypot(t.x - b.x / UM_PER_M, t.y - b.y / UM_PER_M);
     return (b.started ? b.leg + 1 : 0) * 1e6 - d;
+  }
+
+  /** Warn once when a squall (a huge, fast gust front) is about to reach the boat. */
+  private watchSquall(s: BoatState): void {
+    for (const p of this.course.puffs) {
+      if (p.k < 145 || p.r < 60 || this.squallSeen.has(p)) continue;
+      const c = puffCentre(this.course, p, s.tick);
+      const d = Math.hypot(c.x / UM_PER_M - s.x / UM_PER_M, c.y / UM_PER_M - s.y / UM_PER_M);
+      if (d < p.r + 70) {
+        this.squallSeen.add(p);
+        this.toast('Squall!', 'info', 'A huge gust is sweeping down the course. Ride it.', 2600);
+        sfx.drums(2);
+        vibrate([40, 60, 40]);
+      }
+    }
   }
 
   private updatePlace(s: BoatState): void {
