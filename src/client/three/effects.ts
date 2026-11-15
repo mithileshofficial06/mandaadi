@@ -229,3 +229,51 @@ export function createStreaks(count = 46): Streaks {
     },
   };
 }
+
+// ------------------------------------------------------------------ wind ring
+// A ring on the water around the boat, turned to the wind, coloured by how fast each heading is:
+// red = no-go (into the wind), green = the two fastest angles (~50 and ~150 deg), amber = dead
+// downwind (slow). A white needle shows where the bow points. Visible from any camera angle.
+
+export type WindRing = { mesh: Mesh; update(x: number, y: number, windFromRad: number, twaRad: number): void };
+
+export function createWindRing(noGoRad: number): WindRing {
+  const geo = new PlaneGeometry(18, 18);
+  geo.rotateX(-Math.PI / 2);
+  const mat = new ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    uniforms: { uNoGo: { value: noGoRad }, uTwa: { value: 0 } },
+    vertexShader: `varying vec2 vP; void main(){ vP = position.xz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+    fragmentShader: `
+      varying vec2 vP; uniform float uNoGo; uniform float uTwa;
+      void main(){
+        float r = length(vP);
+        float band = smoothstep(6.3, 6.6, r) * (1.0 - smoothstep(7.6, 7.9, r));
+        if (band <= 0.001 && r > 8.6) discard;
+        float a = atan(vP.x, -vP.y);            // 0 = into the wind
+        float aa = abs(a);
+        vec3 c = vec3(0.96, 0.95, 0.92); float al = 0.28;
+        if (aa < uNoGo) { c = vec3(0.92, 0.27, 0.29); al = 0.85; }
+        else if (aa > radians(42.0) && aa < radians(60.0)) { c = vec3(0.45, 0.9, 0.6); al = 0.7; }
+        else if (aa > radians(138.0) && aa < radians(160.0)) { c = vec3(0.45, 0.9, 0.6); al = 0.7; }
+        else if (aa > radians(162.0)) { c = vec3(1.0, 0.75, 0.25); al = 0.8; }
+        float col = band * al;
+        // heading needle: a short bar just outside the ring
+        float d = abs(atan(sin(a - uTwa), cos(a - uTwa)));
+        float needle = (1.0 - smoothstep(0.03, 0.06, d)) * smoothstep(6.0, 6.3, r) * (1.0 - smoothstep(8.3, 8.6, r));
+        vec3 outc = mix(c, vec3(1.0), needle);
+        gl_FragColor = vec4(outc, max(col, needle * 0.95));
+      }`,
+  });
+  const mesh = new Mesh(geo, mat);
+  mesh.renderOrder = 4;
+  return {
+    mesh,
+    update(x, y, wf, twa) {
+      mesh.position.set(x, 0.1, -y);
+      mesh.rotation.y = -wf;
+      mat.uniforms.uTwa!.value = twa;
+    },
+  };
+}

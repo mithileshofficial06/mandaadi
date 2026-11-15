@@ -22,7 +22,7 @@ import { sfx } from '../app/audio';
 import { SteerInput } from '../input/steer';
 import { CameraRig } from '../three/cameraRig';
 import { createCourseMarks } from '../three/courseMarks';
-import { createCone, createWake } from '../three/effects';
+import { createCone, createWake, createWindRing, type WindRing } from '../three/effects';
 import { createLand } from '../three/islands';
 import { LIVERIES, createBoat, type BoatModel } from '../three/boatModel';
 import { QualityScaler } from '../three/renderer';
@@ -107,6 +107,9 @@ export class Race {
   private fog: Fog;
   private sky: Sky;
   private birds: Birds;
+  private ring: WindRing;
+  private runTime = 0;
+  private runHinted = false;
   private spray: Spray;
   private sprayAcc = 0;
   private lastV = 0;
@@ -170,6 +173,8 @@ export class Race {
     this.scene.add(this.marks.group);
     this.cone = createCone(NO_GO * RAD);
     this.scene.add(this.cone.mesh);
+    this.ring = createWindRing(NO_GO * RAD);
+    this.scene.add(this.ring.mesh);
     this.wake = createWake();
     this.ghostWake = createWake({ life: 9, opacity: 0.45 });
     this.scene.add(this.wake.mesh, this.ghostWake.mesh);
@@ -379,7 +384,9 @@ export class Race {
     const deg = (Math.abs(twa) * 360) / ANG;
     hud.status.value = inCone ? 'irons' : deg < 62 ? 'upwind' : deg < 128 ? 'reach' : deg < 165 ? 'downwind' : 'run';
     // Near the finish: say so once.
-    if (s.started && s.leg >= this.course.marks.length && !this.finishHinted && hud.legDist.value < 40) {
+    const f = this.course.finish;
+    const toFinish = Math.hypot((f.a.x + f.b.x) / 2 - s.x / UM_PER_M, (f.a.y + f.b.y) / 2 - s.y / UM_PER_M);
+    if (s.started && s.leg >= this.course.marks.length && !this.finishHinted && toFinish < 40) {
       this.finishHinted = true;
       this.toast('Cross the line to finish', 'info');
     }
@@ -400,6 +407,16 @@ export class Race {
     if (this.opts.coach) {
       if (inCone && s.tick > GUN_TICK) this.coneTime += stepDt;
       else this.coneTime = Math.max(0, this.coneTime - stepDt);
+      // Dead downwind is slow: say so once, the first time it happens.
+      if (Math.abs(twa) > (165 * ANG) / 360 && s.started) this.runTime += stepDt;
+      else this.runTime = 0;
+      if (this.runTime > 1.2 && !this.runHinted) {
+        this.runHinted = true;
+        this.setPrompt('Straight downwind is slow (amber on the ring). Angle off into the green and gybe.', 4);
+        window.setTimeout(() => {
+          if (this.promptStage === 4) this.setPrompt(null);
+        }, 5000);
+      }
       if (this.coneTime > 0.6 && this.promptStage < 2) this.setPrompt("The red cone is the wind. You can't sail into it. Zigzag, or tap TACK.", 2);
       if (this.promptStage === 2 && !inCone && this.coneTime === 0) this.setPrompt(null);
       if (this.promptStage === 1 && s.tick > GUN_TICK + 150) this.setPrompt(null);
@@ -625,6 +642,8 @@ export class Race {
     const warn = Math.max(0, 1 - (Math.abs(twa) - NO_GO * RAD) / 0.35);
     this.cone.update(bx, by, windFrom, Math.min(1, warn), t);
     this.cone.mesh.visible = hud.phase.value !== 'finished';
+    this.ring.update(bx, by, windFrom, twa);
+    this.ring.mesh.visible = hud.phase.value !== 'finished';
     this.water.setHaze(130 + this.rig.camera.position.y * 2.2);
     this.fog.near = 420 + this.rig.camera.position.y;
     this.fog.far = 1300 + this.rig.camera.position.y;
