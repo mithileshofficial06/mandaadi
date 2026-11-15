@@ -15,6 +15,14 @@ Done:
 
 Design decision (from Mithilesh's "cool, attractive, realistic, not AI-looking"): the art moved from v2's "stylised chart" to a realistic sunny aerial look of the Coromandel coast with traditional boats. All procedural.
 
+## Polish pass (2026-11-15, evening) - from Mithilesh: better assets, clearer camera, easy to understand, better animation, frequent commits
+Commits 67122c2 .. 5b84765:
+- Camera: cinematic orbit on the start screen and after the finish; closer follow view (boat in the lower third, steady through tacks); pinch / wheel zoom (7-40 m half-width); next-mark marker (over the mark, or pinned to the edge with distance).
+- Understanding: How to sail guide (3 animated cards, first visit + help button that pauses with Restart), start card with today's course chart and an example line, sailing status line, gust/lull chips, toasts (start quality, mark rounded + split, aground, final approach), finish card with your line vs the Harbourmaster's and which side each took.
+- World: sky dome with clouds, vallam bow + stem post + plank seams + pot/net/anchor stone + ropes, wind-aligned whitecaps (gusts read without colour), foam rings at marks, fishing village with beached boats, gulls.
+- Animation: bow spray, swell pitch/roll matched to the water shader, bow lift on acceleration, rounding ripple, Go flash, finish count-up.
+- Checks: 10/10 tests, lint, tsc, build; e2e 1:33.1 no errors; 55 fps at 4x CPU throttle dpr 2; race.js 182 KB gz, splash ~9 KB gz.
+
 ## Next
 1. **Mithilesh:** check that `mandaadi` is free as a Devvit app name (`devvit new`/upload will say), create `r/mandaadi_dev` (private test sub). If the name is taken, use `mandaadi-race` and update devvit.json `name` + `dev.subreddit`.
 2. First `devvit playtest` on r/mandaadi_dev; test on a real phone in the Reddit app (drag steering inside the webview, double-tap not swallowed, fps).
