@@ -16,7 +16,7 @@ const KEEP_S = 4 * 86_400;
 const TOKEN_S = 30 * 60;
 const MAX_LOG = 40_000;
 
-type Run = { name: string; ticks: number; log: string; livery: LiveryDto | null };
+export type Run = { name: string; ticks: number; log: string; livery: LiveryDto | null };
 type Token = { uid: string; name: string; date: string; t: number };
 
 const k = {
@@ -113,17 +113,19 @@ export async function finishRace(tokenId: string, logStr: string, livery: Livery
   const p = await par(course);
   const prev = await kv().zScore(k.lb(tok.date), tok.uid);
   const improved = prev === undefined || res.ticks < prev;
-  if (improved) {
-    const run: Run = { name: tok.name, ticks: res.ticks, log: logStr, livery: cleanLivery(livery) };
-    await kv().zAdd(k.lb(tok.date), { member: tok.uid, score: res.ticks });
-    await kv().hSet(k.runs(tok.date), { [tok.uid]: JSON.stringify(run) });
-    await kv().hSet(k.routes(tok.date), { [tok.uid]: JSON.stringify(res.route) });
-    for (const key of [k.lb(tok.date), k.runs(tok.date), k.routes(tok.date)]) await kv().expire(key, KEEP_S * 2);
-  }
+  if (improved) await storeRun(tok.date, tok.uid, { name: tok.name, ticks: res.ticks, log: logStr, livery: cleanLivery(livery) }, res.route);
   // Remember the day of the first ever finish: the warm-up bonus lasts that whole day.
   await kv().set(k.finished(tok.uid), tok.date, { nx: true });
   const [best, sailors, att] = await Promise.all([myBest(tok.date, tok.uid, p), kv().zCard(k.lb(tok.date)), attempts(tok.date, tok.uid)]);
   return { ticks: res.ticks, medal: medalFor(res.ticks, p), par: p, improved, best: best!, sailors, attempts: att };
+}
+
+/** Saves a verified run as the sailor's best for the day. */
+export async function storeRun(date: string, uid: string, run: Run, route: Array<[number, number]>): Promise<void> {
+  await kv().zAdd(k.lb(date), { member: uid, score: run.ticks });
+  await kv().hSet(k.runs(date), { [uid]: JSON.stringify(run) });
+  await kv().hSet(k.routes(date), { [uid]: JSON.stringify(route) });
+  for (const key of [k.lb(date), k.runs(date), k.routes(date)]) await kv().expire(key, KEEP_S * 2);
 }
 
 function cleanLivery(l: LiveryDto | null): LiveryDto | null {

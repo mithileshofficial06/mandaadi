@@ -3,7 +3,7 @@
 import './styles/tokens.css';
 import './splash.css';
 import { requestExpandedMode } from '@devvit/web/client';
-import type { TodayResponse } from '../shared/api/types';
+import type { RoutesResponse, TodayResponse } from '../shared/api/types';
 import type { Course } from '../shared/core/course';
 import { SANDBAR_SPRINT } from '../shared/content/courses';
 
@@ -65,6 +65,22 @@ function draw(course: Course): void {
     g.arc(X(p.x), Y(p.y), p.r * s, 0, Math.PI * 2);
     g.fill();
   }
+  // The wake map: every sailor's verified route today, faint, so busy lines glow brighter.
+  const line = (pts: Array<[number, number]>) => {
+    g.beginPath();
+    pts.forEach(([x, y], i) => (i ? g.lineTo(X(x / 10), Y(y / 10)) : g.moveTo(X(x / 10), Y(y / 10))));
+    g.stroke();
+  };
+  g.lineJoin = 'round';
+  g.lineCap = 'round';
+  g.lineWidth = 1.6;
+  g.strokeStyle = `rgba(244,241,234,${Math.max(0.08, Math.min(0.5, 2.2 / Math.sqrt(wakes.routes.length + 1)))})`;
+  for (const r of wakes.routes) line(r);
+  if (wakes.mine) {
+    g.lineWidth = 2.6;
+    g.strokeStyle = '#ff6b1a';
+    line(wakes.mine);
+  }
   // start/finish line
   g.strokeStyle = 'rgba(244,241,234,0.9)';
   g.setLineDash([5, 4]);
@@ -105,6 +121,7 @@ function draw(course: Course): void {
 }
 
 let course: Course = SANDBAR_SPRINT;
+let wakes: RoutesResponse = { routes: [], mine: null };
 const redraw = () => draw(course);
 window.addEventListener('resize', redraw);
 redraw();
@@ -118,6 +135,32 @@ void fetch('/api/today')
     course = t.course;
     document.getElementById('kicker')!.textContent = `Day ${t.day} · ${TYPE[t.course.type] ?? 'Race'} · ${STRENGTH[t.course.wind.strength]} breeze`;
     document.getElementById('title')!.textContent = t.course.name;
+    const fmt = (ticks: number) => {
+      const s = ticks / 30;
+      const m = Math.floor(s / 60);
+      return `${m}:${s - m * 60 < 10 ? '0' : ''}${(s - m * 60).toFixed(1)}`;
+    };
+    const sub = document.getElementById('sub')!;
+    const cta = document.getElementById('race')!;
+    const left = t.attempts.max - t.attempts.used;
+    if (!t.live) {
+      sub.textContent = t.top ? `Closed · won by u/${t.top.name} in ${fmt(t.top.ticks)} · ${t.sailors} sailors` : 'This race day has closed.';
+      cta.textContent = 'Practise this course';
+    } else if (t.best) {
+      sub.textContent = `Your best ${fmt(t.best.ticks)} · ${t.best.rank} of ${t.sailors}${t.top && t.best.rank > 1 ? ` · leader u/${t.top.name} ${fmt(t.top.ticks)}` : ''}`;
+      cta.textContent = left > 0 ? `Beat your time (${left} left)` : 'Practise the course';
+    } else if (t.top) {
+      sub.textContent = `${t.sailors} ${t.sailors === 1 ? 'sailor' : 'sailors'} today · fastest u/${t.top.name} ${fmt(t.top.ticks)}. Find a faster line.`;
+    }
+    redraw();
+  })
+  .catch(() => undefined);
+
+void fetch('/api/routes')
+  .then((r) => (r.ok ? (r.json() as Promise<RoutesResponse>) : null))
+  .then((w) => {
+    if (!w) return;
+    wakes = w;
     redraw();
   })
   .catch(() => undefined);
