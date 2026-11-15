@@ -1,6 +1,6 @@
 {
   "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
-  "name": "mandaadi",
+  "name": "mandaadi-race",
   "post": {
     "dir": "dist/client",
     "entrypoints": {
@@ -52,5 +52,8 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch"
+  },
+  "dev": {
+    "subreddit": "mandaadi_race_dev"
   }
 }
