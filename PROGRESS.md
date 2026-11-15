@@ -90,3 +90,10 @@ Then tier B (Reddit features). Avoid: speed boosts / power-ups (break "same wind
 - Anti-cheat: runs more than 20% under par are not counted. Real bot detection needs human input logs from testers first (not built).
 - Restart within 13 s of the ticket (3 s countdown + 10 s) refunds the attempt (`/api/race/abandon`); pause menu says so.
 - Start card: paint behind a "Your boat" toggle; short screens (< 720 px) hide the wind/hint lines and shrink the chart.
+
+## Claude's items done (2026-11-16) - live as v0.0.8
+- Verified on Reddit through the real UI (dev-only autopilot: `localStorage['mandaadi.autopilot']='1'` in the webview, honoured only when the subreddit name ends in `_dev`): a full ranked daily race (server-verified, board) and School 1-1 (3 stars saved on the server). Flair shows "⛵ 3★" for u/kira_-_06. Tool: `node tools/rb-full.mjs <post url>`.
+- Storm squall: storm courses get a big fast gust front (k 148-158, r 70-90, drift 32-44); "Squall!" warning when it nears. Only storm courses changed.
+- Charts: currents drawn with flow arrows; the wind arrow picks a corner clear of marks, islands, shoals and the start line.
+- Upgrade trigger posts today's race if missing (once per day). Old untitled Day 1 test post removed (with its test comment).
+- README rewritten (with the name meaning); SUBMISSION.md draft for the hackathon form.

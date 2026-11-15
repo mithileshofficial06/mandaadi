@@ -65,7 +65,7 @@ function Verdict() {
         </span>
         <span>
           <b>{MEDAL_NAME[v.medal]}</b> · {v.improved ? `${ordinal(v.best.rank)} of ${v.sailors} today` : `Your best stays ${fmtTicks(v.best.ticks)} (${ordinal(v.best.rank)})`}
-          <small>{v.attempts.used >= v.attempts.max ? 'No attempts left today' : `${v.attempts.max - v.attempts.used} attempts left`}</small>
+          <small>{v.attempts.used >= v.attempts.max ? 'No attempts left today' : `${v.attempts.max - v.attempts.used} attempt${v.attempts.max - v.attempts.used === 1 ? '' : 's'} left`}</small>
         </span>
       </div>
     );
