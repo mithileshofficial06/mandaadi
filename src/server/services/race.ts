@@ -1,6 +1,6 @@
 // Daily race: attempts, server-verified times, leaderboard, ghosts, routes and sharing.
 // A time only counts if the server re-sails the player's input log and gets that exact time.
-import { BY_WEEKDAY } from '../../shared/content/courses';
+import { PARS, type SchoolBest, dailyCourse, findLevel, starsFor } from '../../shared/content/school';
 import { type Course, PHYSICS_VERSION } from '../../shared/core/course';
 import { TICK_HZ } from '../../shared/core/fixed';
 import { decodeInputs } from '../../shared/core/inputs';
@@ -9,7 +9,7 @@ import { simulate } from '../../shared/core/simulate';
 import type { BoardRow, Ghost, LiveryDto } from '../../shared/api/types';
 import { platform } from '../platform';
 import { ApiErr } from './errors';
-import { dayNumber, today, weekday } from './time';
+import { dayNumber, today } from './time';
 
 export const MAX_ATTEMPTS = 3;
 const KEEP_S = 4 * 86_400;
@@ -31,11 +31,13 @@ const k = {
   routes: (date: string) => `rt:${date}`,
   shared: (date: string, uid: string) => `shared:${date}:${uid}`,
   livery: (uid: string) => `livery:${uid}`,
+  school: (uid: string) => `school:${uid}`,
 };
 const kv = () => platform().kv;
 const expiry = (s: number) => new Date(platform().now() + s * 1000);
 
-export const courseFor = (date: string): Course => BY_WEEKDAY[weekday(date)]!;
+/** The daily race: a 30-day cycle of generated courses that repeats. */
+export const courseFor = (date: string): Course => dailyCourse(dayNumber(date));
 
 /** The date this post races: its own day for daily posts, today otherwise. */
 export async function dateOfPost(): Promise<string> {
@@ -53,6 +55,7 @@ export async function claimDailyPost(date: string): Promise<boolean> {
 }
 
 export async function par(course: Course): Promise<number> {
+  if (PARS[course.id]) return PARS[course.id]!;
   const c = await kv().get(k.par(course.id));
   if (c) return Number(c);
   const p = parTicks(course);
@@ -249,4 +252,29 @@ export async function share(date: string, image: string | null) {
     await kv().del(k.shared(date, ctx.userId));
     throw e;
   }
+}
+
+// ---------- Sailing School ----------
+
+export async function schoolBest(uid: string | undefined): Promise<SchoolBest> {
+  if (!uid) return {};
+  const h = await kv().hGetAll(k.school(uid));
+  return Object.fromEntries(Object.entries(h).map(([id, t]) => [id, Number(t)]));
+}
+
+/** Re-sails a School level from its input log and keeps the best time. No attempts limit. */
+export async function schoolFinish(levelId: string, logStr: string) {
+  const ctx = platform().ctx();
+  if (!ctx.userId) throw new ApiErr('login', 'Log in to Reddit to save your School progress.', 401);
+  const lv = typeof levelId === 'string' ? findLevel(levelId) : null;
+  if (!lv || typeof logStr !== 'string' || logStr.length > MAX_LOG) throw new ApiErr('bad-request', 'That level could not be read.');
+  const log = decodeInputs(logStr);
+  if (!log) throw new ApiErr('bad-request', 'That level could not be read.');
+  const res = simulate(lv.course, log);
+  if (!res.finished) throw new ApiErr('not-finished', 'The harbour did not see you cross the finish line.', 400);
+  const prev = Number((await kv().hGet(k.school(ctx.userId), levelId)) ?? 0);
+  const improved = !prev || res.ticks < prev;
+  if (improved) await kv().hSet(k.school(ctx.userId), { [levelId]: String(res.ticks) });
+  const par = PARS[levelId] ?? 0;
+  return { ticks: res.ticks, stars: starsFor(res.ticks, par), best: improved ? res.ticks : prev, improved, par };
 }

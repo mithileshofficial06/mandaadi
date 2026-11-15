@@ -2,7 +2,8 @@ import '../styles/tokens.css';
 import '../styles/race.css';
 import { render } from 'preact';
 import { useState } from 'preact/hooks';
-import { COURSES, SANDBAR_SPRINT } from '../../shared/content/courses';
+import { SANDBAR_SPRINT } from '../../shared/content/courses';
+import { SCHOOL, courseById, dailyCourse } from '../../shared/content/school';
 import type { Course } from '../../shared/core/course';
 import { ApiFailure, api } from '../app/api';
 import { type InputLog, decodeInputs, encodeInputs } from '../../shared/core/inputs';
@@ -108,7 +109,54 @@ async function claim(): Promise<void> {
 }
 
 /** Send a finished run to the server, which re-sails it and returns the official result. */
+const SCHOOL_KEY = 'mandaadi.school';
+/** School best times: the server's (logged in) merged with this browser's (logged out or offline). */
+async function loadSchool(): Promise<void> {
+  let local: Record<string, number>;
+  try {
+    local = JSON.parse(store.get(SCHOOL_KEY) ?? '{}') as Record<string, number>;
+  } catch {
+    local = {};
+  }
+  let server: Record<string, number>;
+  try {
+    server = (await api.school()).best;
+  } catch {
+    server = {};
+  }
+  const merged = { ...local };
+  for (const [id, t] of Object.entries(server)) if (!merged[id] || t < merged[id]!) merged[id] = t;
+  hud.school.value = merged;
+}
+
+function keepSchoolLocal(id: string, ticks: number): void {
+  const cur = hud.school.value[id];
+  if (cur && cur <= ticks) return;
+  hud.school.value = { ...hud.school.value, [id]: ticks };
+  store.set(SCHOOL_KEY, JSON.stringify(hud.school.value));
+}
+
+/** A School level finished: stars locally at once, then the server re-sails it to save progress. */
+async function submitSchool(id: string, log: InputLog, ticks: number): Promise<void> {
+  keepSchoolLocal(id, ticks);
+  if (!hud.daily.value?.user.loggedIn) {
+    hud.schoolResult.value = null;
+    return;
+  }
+  hud.schoolResult.value = 'checking';
+  try {
+    hud.schoolResult.value = await api.schoolFinish(id, encodeInputs(log));
+  } catch (e) {
+    hud.schoolResult.value = { error: errText(e, 'Could not save this level. Your stars are kept on this device.') };
+  }
+}
+
 async function submit(log: InputLog): Promise<void> {
+  if (hud.tab.value === 'school-level') {
+    const r = hud.result.value;
+    if (r) await submitSchool(course.id, log, r.ticks);
+    return;
+  }
   const t = token;
   token = null;
   if (t) {
@@ -168,18 +216,30 @@ function resetHud(): void {
   hud.verified.value = null;
   hud.board.value = null;
   hud.shared.value = 'idle';
+  hud.schoolResult.value = null;
 }
+
+/** Show a course on the start card (idle boat, orbit camera). */
+let pick: (c: Course) => void = () => undefined;
 
 function App() {
   // First visit: open the guide before the first race (skippable). The autopilot debug run skips it.
   const [, setTick] = useState(0);
   const [guide, setGuide] = useState<'closed' | 'intro' | 'paused'>(store.get(GUIDE_KEY) || hud.daily.value?.profile.finishedEver || params.get('autopilot') ? 'closed' : 'intro');
+  pick = (c: Course) => {
+    course = c;
+    resetHud();
+    race = newRace();
+    race.idle();
+    setTick((n) => n + 1);
+  };
   const start = () => {
     sfx.unlock();
     store.set(GUIDE_KEY, '1');
     setGuide('closed');
     race?.go();
-    void claim();
+    if (hud.tab.value === 'daily') void claim();
+    else hud.ranked.value = { kind: 'practice' };
   };
   return (
     <Hud
@@ -226,20 +286,34 @@ function App() {
           hud.shared.value = { error: errText(e, 'Could not share your race.') };
         }
       }}
-      courses={COURSES}
+      onDaily={() => {
+        const d = hud.daily.value;
+        hud.tab.value = 'daily';
+        pick(d ? d.course : dailyCourse(day));
+      }}
+      onSchool={() => {
+        hud.tab.value = 'school-list';
+        setTick((n) => n + 1);
+      }}
+      onPickLevel={(id) => {
+        const c = courseById(id);
+        if (!c) return;
+        hud.tab.value = 'school-level';
+        pick(c);
+      }}
+      onNextLevel={(id) => {
+        const c = courseById(id);
+        if (!c) return;
+        hud.tab.value = 'school-level';
+        course = c;
+        resetHud();
+        race = newRace();
+        start();
+      }}
       livery={myLivery()}
       onLivery={(l) => {
         store.set(LIVERY_KEY, JSON.stringify(l));
         void api.livery({ hull: l.hull, band: l.band, sailNo: l.sailNo }).catch(() => undefined);
-        race = newRace();
-        race.idle();
-        setTick((n) => n + 1);
-      }}
-      onPick={(id) => {
-        const c = COURSES.find((k) => k.id === id);
-        if (!c) return;
-        course = c;
-        resetHud();
         race = newRace();
         race.idle();
         setTick((n) => n + 1);
@@ -281,9 +355,10 @@ function placeLine(fleetPlace: string): string {
 async function boot(): Promise<void> {
   bootUi()?.to(30);
   try {
-    const [t] = await Promise.all([api.today(), loadRivals()]);
+    const [t] = await Promise.all([api.today(), loadRivals(), loadSchool()]);
     hud.daily.value = t;
-    course = COURSES.find((c) => c.id === params.get('course')) ?? t.course;
+    course = courseById(params.get('course') ?? '') ?? t.course;
+    if (SCHOOL.some((st) => st.levels.some((l) => l.id === course.id))) hud.tab.value = 'school-level';
     day = t.day;
   } catch {
     // Offline or harness without a server: sail the built-in course.

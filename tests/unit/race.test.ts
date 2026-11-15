@@ -97,6 +97,24 @@ describe('race flow', () => {
     expect((await call('POST', '/api/share', {})).status).toBe(429);
   });
 
+  it('verifies School levels and keeps the best time', async () => {
+    as('fay');
+    const { SCHOOL: S } = await import('../../src/shared/content/school');
+    const lv = S[0]!.levels[0]!;
+    const st = initialState(lv);
+    const pilot = new Pilot(lv);
+    const rec = new InputRecorder();
+    while ((st.phase === 'prestart' || st.phase === 'racing') && st.tick <= MAX_TICKS) {
+      const i = pilot.next(st);
+      rec.record(st.tick, i);
+      step(st, lv, i);
+    }
+    const r = (await call('POST', '/api/school/finish', { levelId: lv.id, log: encodeInputs(rec.log) })).json;
+    expect(r.stars).toBeGreaterThan(0);
+    expect((await call('GET', '/api/school')).json.best[lv.id]).toBe(r.ticks);
+    expect((await call('POST', '/api/school/finish', { levelId: 'nope', log: encodeInputs(rec.log) })).status).toBe(400);
+  });
+
   it('posts one race per day from the scheduler', async () => {
     await call('POST', '/internal/cron/daily-rollover');
     await call('POST', '/internal/cron/daily-rollover');

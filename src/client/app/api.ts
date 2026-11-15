@@ -1,4 +1,4 @@
-import type { ApiError, BoardResponse, FinishResponse, GhostsResponse, LiveryDto, RoutesResponse, ShareResponse, StartResponse, TodayResponse } from '../../shared/api/types';
+import type { SchoolFinishResponse, SchoolResponse, ApiError, BoardResponse, FinishResponse, GhostsResponse, LiveryDto, RoutesResponse, ShareResponse, StartResponse, TodayResponse } from '../../shared/api/types';
 
 export class ApiFailure extends Error {
   constructor(
@@ -42,6 +42,8 @@ export const api = {
   board: () => req<BoardResponse>('GET', 'board'),
   ghosts: () => req<GhostsResponse>('GET', 'ghosts'),
   routes: () => req<RoutesResponse>('GET', 'routes'),
+  school: () => req<SchoolResponse>('GET', 'school'),
+  schoolFinish: (levelId: string, log: string) => req<SchoolFinishResponse>('POST', 'school/finish', { levelId, log }),
   livery: (livery: LiveryDto) => req<{ ok: true }>('POST', 'livery', { livery }),
   share: (image: string | null) => req<ShareResponse>('POST', 'share', { image }),
 };

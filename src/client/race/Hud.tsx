@@ -6,6 +6,8 @@ import type { Course } from '../../shared/core/course';
 import { sfx } from '../app/audio';
 import { type Route, drawChart, sideOf } from './chart';
 import { Guide } from './Guide';
+import { LevelIntro, LevelResult, SchoolList, nextLevel, totalStars } from './School';
+import { SCHOOL, findLevel } from '../../shared/content/school';
 import { MEDAL_NAME, type Medal } from '../../shared/core/par';
 
 const MEDAL_ICON: Record<Medal, string> = { harbourmaster: '🥇', navigator: '🥈', deckhand: '🥉' };
@@ -216,8 +218,10 @@ export type HudProps = {
   onTack: () => void;
   onMap: () => void;
   onCamera: () => void;
-  courses: Course[];
-  onPick: (id: string) => void;
+  onDaily: () => void;
+  onSchool: () => void;
+  onPickLevel: (id: string) => void;
+  onNextLevel: (id: string) => void;
   onReplay: () => void;
   onPostcard: () => void;
   onShare: () => void;
@@ -252,20 +256,58 @@ export function Hud(props: HudProps) {
       <Guide paused={props.guide === 'paused'} onClose={props.onCloseGuide} {...(props.guide === 'paused' ? { onRestart: props.onRestart } : {})} />
     ) : null;
 
+  const tab = hud.tab.value;
+  const lvl = tab === 'school-level' ? findLevel(course.id) : null;
+  const tabs = (
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected={tab === 'daily'} class={`tab ${tab === 'daily' ? 'is-on' : ''}`} onClick={props.onDaily}>
+        Today's race
+      </button>
+      <button role="tab" aria-selected={tab !== 'daily'} class={`tab ${tab !== 'daily' ? 'is-on' : ''}`} onClick={props.onSchool}>
+        Sailing School <small>{totalStars()} ★</small>
+      </button>
+    </div>
+  );
+
+  if (phase === 'ready' && tab === 'school-list') {
+    return (
+      <div class="hud hud--ready">
+        <section class="startcard startcard--school" aria-label="Sailing School">
+          {tabs}
+          <p class="startcard__hint">Six stages, five levels each. Beat the Harbourmaster for three stars. Each stage needs 8 stars from the one before.</p>
+          {SchoolList(props.onPickLevel)}
+        </section>
+        {guide}
+      </div>
+    );
+  }
+
   if (phase === 'ready') {
     return (
       <div class="hud hud--ready">
         <section class="startcard" aria-labelledby="race-title">
+          {tabs}
           <p class="startcard__day">
-            Day {props.day} · {TYPE_LABEL[course.type] ?? 'Race'}
+            {lvl ? (
+              <>
+                <button class="linkbtn" onClick={props.onSchool}>
+                  ‹ School
+                </button>{' '}
+                Level {lvl.stage + 1}-{lvl.level + 1} · {SCHOOL[lvl.stage]!.name}
+              </>
+            ) : (
+              <>
+                Day {props.day} · {TYPE_LABEL[course.type] ?? 'Race'}
+              </>
+            )}
           </p>
           <h1 id="race-title" class="startcard__title">
             {course.name}
           </h1>
           <p class="startcard__wind">
-            {STRENGTH[course.wind.strength]} from the {compassName(course.wind.from)}. Everyone sails this course today.
+            {STRENGTH[course.wind.strength]} from the {compassName(course.wind.from)}.{lvl ? '' : ' Everyone sails this course today.'}
           </p>
-          <p class="startcard__hint">Zigzag up to the mark, round it, race back through the line</p>
+          {lvl ? LevelIntro(course.id) : <p class="startcard__hint">Round the marks in order, then race back through the line</p>}
           <div class="startcard__chart">
             <CourseChart course={course} example />
           </div>
@@ -290,23 +332,13 @@ export function Hud(props: HudProps) {
               }}
             />
           </div>
-          <label class="picker">
-            <span>Practice another course</span>
-            <select value={course.id} onChange={(e) => props.onPick((e.target as HTMLSelectElement).value)}>
-              {props.courses.map((c) => (
-                <option value={c.id}>
-                  {c.name} · {TYPE_LABEL[c.type]}
-                </option>
-              ))}
-            </select>
-          </label>
-          {DailyStatus(course)}
+          {!lvl && DailyStatus(course)}
           <div class="startcard__row">
             <button class="btn btn--ghost" onClick={props.onHelp}>
               How to sail
             </button>
             <button class="btn btn--primary btn--grow" onClick={props.onStart}>
-              {canRank(course) || !hud.daily.value ? 'Start the race' : 'Start practice'}
+              {lvl ? 'Start level' : canRank(course) || !hud.daily.value ? 'Start the race' : 'Start practice'}
             </button>
           </div>
         </section>
@@ -474,9 +506,11 @@ function Finish(props: HudProps) {
   const canShare = !!v && v !== 'checking' && !('error' in v);
   const d = hud.daily.value;
   const left = d ? d.attempts.max - d.attempts.used : 0;
+  const lvl = hud.tab.value === 'school-level' ? findLevel(props.course.id) : null;
+  const nxt = lvl ? nextLevel(props.course.id) : null;
   return (
     <div class="finish" role="dialog" aria-labelledby="finish-time">
-      <p class="finish__label">Finished {res.place} in the fleet</p>
+      <p class="finish__label">{lvl ? `Level ${lvl.stage + 1}-${lvl.level + 1} · ${props.course.name}` : `Finished ${res.place} in the fleet`}</p>
       <p id="finish-time" class="finish__time" aria-label={fmtTicks(res.ticks)}>
         <CountUp ticks={res.ticks} />
       </p>
@@ -487,7 +521,7 @@ function Finish(props: HudProps) {
       ) : (
         <p class="finish__vs is-win">You beat the Harbourmaster home</p>
       )}
-      {Verdict()}
+      {lvl ? LevelResult(props.course.id, res.ticks) : Verdict()}
       <div class="finish__chart">
         <CourseChart
           course={props.course}
@@ -502,7 +536,7 @@ function Finish(props: HudProps) {
           <span class="lg lg--hm">Harbourmaster went {sideName(theirs)}</span>
         </div>
       </div>
-      {board && board.rows.length > 0 ? (
+      {!lvl && board && board.rows.length > 0 ? (
         <ol class="fleet fleet--board" aria-label="Today's board">
           {board.rows.slice(0, 5).map((b) => (
             <li class={b.me ? 'is-me' : ''}>
@@ -562,10 +596,26 @@ function Finish(props: HudProps) {
         </button>
       )}
       {typeof sh === 'object' && <p class="verdict is-bad">{sh.error}</p>}
-      <button class="btn btn--primary btn--big" onClick={props.onAgain}>
-        {canRank(props.course) ? `Race again (${left} left)` : 'Practise again'}
-        {mine !== 0 ? `: try the ${mine < 0 ? 'right' : 'left'}` : ''}
-      </button>
+      {lvl ? (
+        <div class="startcard__row">
+          <button class="btn btn--ghost" onClick={props.onSchool}>
+            School
+          </button>
+          <button class={`btn ${nxt ? 'btn--ghost' : 'btn--primary'} btn--grow`} onClick={props.onAgain}>
+            Retry
+          </button>
+          {nxt && (
+            <button class="btn btn--primary btn--grow" onClick={() => props.onNextLevel(nxt)}>
+              Next level ›
+            </button>
+          )}
+        </div>
+      ) : (
+        <button class="btn btn--primary btn--big" onClick={props.onAgain}>
+          {canRank(props.course) ? `Race again (${left} left)` : 'Practise again'}
+          {mine !== 0 ? `: try the ${mine < 0 ? 'right' : 'left'}` : ''}
+        </button>
+      )}
     </div>
   );
 }

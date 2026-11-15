@@ -194,3 +194,36 @@ body { font-family: var(--f-ui); color: var(--foam); -webkit-tap-highlight-color
 .verdict.is-practice { color: var(--text-dim); font-weight: 500; }
 .btn--share { margin-bottom: 8px; background: #2fb3b0; color: #06222b; }
 .btn--share:disabled { opacity: 0.7; }
+
+/* Tabs: today's race / Sailing School */
+.tabs { display: flex; gap: 6px; margin: 0 0 10px; padding: 3px; border-radius: 12px; background: rgba(0,0,0,0.25); }
+.tab { flex: 1; min-height: 38px; padding: 6px 8px; border: 0; border-radius: 9px; background: transparent; color: var(--text-dim); font: 700 15px/1 var(--f-num); letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; pointer-events: auto; }
+.tab small { font-size: 12px; color: #e8c987; }
+.tab.is-on { background: rgba(255,255,255,0.12); color: #fff; }
+.linkbtn { padding: 0; min-height: 0; border: 0; background: none; color: #e8c987; font: inherit; cursor: pointer; pointer-events: auto; }
+/* School list */
+.startcard--school { max-height: calc(100% - 24px); overflow-y: auto; }
+.school { display: grid; gap: 8px; }
+.stage { padding: 8px 10px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--panel-line); }
+.stage.is-locked { opacity: 0.6; }
+.stage__head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font: 700 16px/1.2 var(--f-num); letter-spacing: 0.03em; }
+.stage__head span { font-size: 13px; color: #e8c987; white-space: nowrap; }
+.stage__lesson { margin: 3px 0 6px; font: 400 12.5px/1.35 system-ui, sans-serif; color: var(--text-dim); }
+.stage__levels { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 4px; }
+.lvl { display: grid; gap: 2px; justify-items: center; min-height: 48px; padding: 5px 0; border-radius: 9px; border: 1px solid var(--panel-line); background: #102a35; color: #fff; cursor: pointer; pointer-events: auto; }
+.lvl:disabled { cursor: default; }
+.lvl.is-done { border-color: rgba(232,201,135,0.6); }
+.lvl__no { font: 700 15px/1 var(--f-num); }
+.lvl__stars { font-size: 11px; letter-spacing: 1px; color: #e8c987; }
+/* Level start card and result */
+.lvlintro { margin: 0 0 8px; }
+.lvlintro__lesson { margin: 0 0 6px; font: 400 14px/1.35 system-ui, sans-serif; color: var(--text); }
+.lvlintro__targets { display: flex; flex-wrap: wrap; gap: 6px 10px; margin: 0; font: 700 14px/1.2 var(--f-num); color: #e8c987; }
+.lvlintro__targets .is-best { color: #fff; }
+.lvlres { text-align: center; margin: 4px 0 8px; }
+.lvlres__stars { margin: 0; font-size: 44px; line-height: 1; letter-spacing: 6px; }
+.lvlres__stars span { color: rgba(255,255,255,0.18); display: inline-block; }
+.lvlres__stars span.is-on { color: #f1c232; animation: star-pop 0.45s cubic-bezier(.3,1.6,.5,1) both; }
+.lvlres__note { margin: 4px 0 0; font: 600 14px/1.3 var(--f-num); color: var(--text-dim); }
+@keyframes star-pop { from { transform: scale(0.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .lvlres__stars span.is-on { animation: none; } }

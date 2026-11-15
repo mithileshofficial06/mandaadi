@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
-import type { BoardResponse, FinishResponse, GhostsResponse, LiveryDto, RoutesResponse, ShareResponse, StartResponse, TodayResponse } from '../../shared/api/types';
+import type { SchoolFinishResponse, SchoolResponse, BoardResponse, FinishResponse, GhostsResponse, LiveryDto, RoutesResponse, ShareResponse, StartResponse, TodayResponse } from '../../shared/api/types';
 import { platform } from '../platform';
 import { ApiErr } from '../services/errors';
-import { attempts, board, courseFor, dateOfPost, finishRace, ghosts, myBest, par, profile, routes, saveLivery, share, startRace } from '../services/race';
+import { schoolBest, schoolFinish, attempts, board, courseFor, dateOfPost, finishRace, ghosts, myBest, par, profile, routes, saveLivery, share, startRace } from '../services/race';
 import { dayNumber, today } from '../services/time';
 
 export const api = new Hono();
@@ -73,5 +73,16 @@ api.post('/livery', async (c) => {
 api.post('/share', async (c) => {
   const b = await body<{ image?: string | null }>(c);
   const res: ShareResponse = await share(await dateOfPost(), typeof b.image === 'string' ? b.image : null);
+  return c.json(res);
+});
+
+api.get('/school', async (c) => {
+  const res: SchoolResponse = { best: await schoolBest(platform().ctx().userId) };
+  return c.json(res);
+});
+
+api.post('/school/finish', async (c) => {
+  const b = await body<{ levelId?: string; log?: string }>(c);
+  const res: SchoolFinishResponse = await schoolFinish(String(b.levelId ?? ''), String(b.log ?? ''));
   return c.json(res);
 });

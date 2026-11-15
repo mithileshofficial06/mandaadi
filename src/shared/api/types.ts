@@ -45,3 +45,6 @@ export type GhostsResponse = { ghosts: Ghost[] };
 export type RoutesResponse = { routes: Array<Array<[number, number]>>; mine: Array<[number, number]> | null };
 
 export type ShareResponse = { ok: true; commentId: string };
+
+export type SchoolResponse = { best: Record<string, number> };
+export type SchoolFinishResponse = { ticks: number; stars: 0 | 1 | 2 | 3; best: number; improved: boolean; par: number };

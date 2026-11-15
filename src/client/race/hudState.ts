@@ -1,5 +1,5 @@
 import { signal } from '@preact/signals';
-import type { BoardResponse, FinishResponse, TodayResponse } from '../../shared/api/types';
+import type { BoardResponse, FinishResponse, SchoolFinishResponse, TodayResponse } from '../../shared/api/types';
 
 export type RouteXY = Array<[number, number]>;
 export type RaceResult = {
@@ -58,6 +58,11 @@ export const hud = {
   verified: signal<FinishResponse | { error: string } | 'checking' | null>(null),
   board: signal<BoardResponse | null>(null),
   shared: signal<'idle' | 'sending' | 'done' | { error: string }>('idle'),
+  /** Start card view: today's race, the School list, or a School level. */
+  tab: signal<'daily' | 'school-list' | 'school-level'>('daily'),
+  /** Best School time per level id (ticks). */
+  school: signal<Record<string, number>>({}),
+  schoolResult: signal<SchoolFinishResponse | { error: string } | 'checking' | null>(null),
 };
 
 export function fmtTicks(ticks: number): string {
