@@ -6,12 +6,13 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "devvit playtest",
+    "dev": "node tools/dv.mjs playtest",
     "harness": "vite --config vite.harness.config.ts",
-    "deploy": "npm run test:types && npm run lint && npm run test && devvit upload",
-    "launch:AFTER-DEC-9-ONLY": "npm run deploy && devvit publish",
+    "deploy": "npm run test:types && npm run lint && npm run test && node tools/dv.mjs upload",
+    "launch:AFTER-DEC-9-ONLY": "npm run deploy && node tools/dv.mjs publish",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
-    "login": "devvit login",
+    "login": "node tools/dv.mjs login",
+    "dv": "node tools/dv.mjs",
     "test": "vitest run",
     "test:types": "tsc --build",
     "gen:trig": "node tools/gen-trig.mjs"
