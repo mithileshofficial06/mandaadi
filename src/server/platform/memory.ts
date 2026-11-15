@@ -215,6 +215,7 @@ export type MemoryPlatform = Platform & {
   kv: MemoryKV;
   setCtx(c: Partial<RequestContext>): void;
   shiftDays(n: number): void;
+  shiftMs(n: number): void;
   posts: { id: string; title: string; postData?: Record<string, unknown> | undefined; byUser: boolean }[];
   comments: { id: string; postId: string; text?: string | undefined; imageUrl?: string | undefined; byUser: boolean }[];
   flairs: Map<string, string>;
@@ -235,6 +236,9 @@ export function createMemoryPlatform(startMs = Date.now()): MemoryPlatform {
     },
     shiftDays(n) {
       offset += n * 86_400_000;
+    },
+    shiftMs(n) {
+      offset += n;
     },
     posts: [],
     comments: [],

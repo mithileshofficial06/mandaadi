@@ -55,5 +55,13 @@
   },
   "dev": {
     "subreddit": "mandaadi_race_dev"
+  },
+  "scheduler": {
+    "tasks": {
+      "daily-rollover": {
+        "endpoint": "/internal/cron/daily-rollover",
+        "cron": "0 0 * * *"
+      }
+    }
   }
 }
