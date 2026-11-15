@@ -62,6 +62,10 @@ export const hud = {
   tab: signal<'daily' | 'school-list' | 'school-level'>('daily'),
   /** Best School time per level id (ticks). */
   school: signal<Record<string, number>>({}),
+  /** Fastest redditor on the picked School level. */
+  levelTop: signal<{ name: string; ticks: number } | null>(null),
+  /** Start card: boat paint sheet open. */
+  paintOpen: signal(false),
   schoolResult: signal<SchoolFinishResponse | { error: string } | 'checking' | null>(null),
 };
 

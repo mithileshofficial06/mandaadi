@@ -14,7 +14,7 @@ export function starsFor(ticks: number, par: number): 0 | 1 | 2 | 3 {
 }
 
 /** Stars needed from the previous stage to open the next one (out of 15). */
-export const STAGE_GATE = 8;
+export const STAGE_GATE = 6;
 
 export type SchoolBest = Record<string, number>;
 
@@ -22,8 +22,16 @@ export function stageStars(stage: number, best: SchoolBest): number {
   return SCHOOL[stage]!.levels.reduce((n, c) => n + starsFor(best[c.id] ?? 0, PARS[c.id] ?? 0), 0);
 }
 
+/** A stage opens with STAGE_GATE stars from the one before, or by finishing every level of it. */
 export function stageOpen(stage: number, best: SchoolBest): boolean {
-  return stage === 0 || (stageOpen(stage - 1, best) && stageStars(stage - 1, best) >= STAGE_GATE);
+  if (stage === 0) return true;
+  if (!stageOpen(stage - 1, best)) return false;
+  const prev = SCHOOL[stage - 1]!.levels;
+  return stageStars(stage - 1, best) >= STAGE_GATE || prev.every((c) => !!best[c.id]);
+}
+
+export function totalStarsOf(best: SchoolBest): number {
+  return SCHOOL.reduce((n, _, s) => n + stageStars(s, best), 0);
 }
 
 /** A level is open when its stage is open and the level before it has been finished. */

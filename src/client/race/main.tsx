@@ -63,6 +63,8 @@ let lastLog: InputLog | null = null;
 let token: string | null = null;
 let raceGen = 0;
 let rivals: Rival[] = [];
+/** The fastest redditor's run on the picked School level, sailed as a ghost. */
+let schoolRivals: Rival[] = [];
 const ordinal = (n: number) => `${n}${n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th'}`;
 const errText = (e: unknown, fallback: string) => (e instanceof ApiFailure ? e.message : fallback);
 const isToday = () => !!hud.daily.value && course.id === hud.daily.value.course.id;
@@ -145,9 +147,23 @@ async function submitSchool(id: string, log: InputLog, ticks: number): Promise<v
   }
   hud.schoolResult.value = 'checking';
   try {
-    hud.schoolResult.value = await api.schoolFinish(id, encodeInputs(log));
+    hud.schoolResult.value = await api.schoolFinish(id, encodeInputs(log), myLivery());
   } catch (e) {
     hud.schoolResult.value = { error: errText(e, 'Could not save this level. Your stars are kept on this device.') };
+  }
+}
+
+async function loadLevelTop(id: string): Promise<void> {
+  hud.levelTop.value = null;
+  schoolRivals = [];
+  try {
+    const f = (await api.schoolLevel(id)).fastest;
+    if (!f) return;
+    hud.levelTop.value = { name: f.name, ticks: f.ticks };
+    const log = decodeInputs(f.log);
+    if (log) schoolRivals = [{ name: `u/${f.name}`, log, livery: f.livery ? { ...LIVERIES[0]!, ...f.livery } : null }];
+  } catch {
+    /* no ghost */
   }
 }
 
@@ -195,7 +211,7 @@ function newRace(): Race {
   const done = racesDone();
   raceGen++;
   token = null;
-  const r = new Race(canvas, course, { coach: done < 2, laylines: done < 3, reducedMotion: reduced, livery: myLivery(), ...(replayLog ? { replay: replayLog } : !params.get('autopilot') && isToday() && rivals.length ? { rivals } : {}) });
+  const r = new Race(canvas, course, { coach: done < 2, laylines: done < 3, reducedMotion: reduced, livery: myLivery(), ...(replayLog ? { replay: replayLog } : params.get('autopilot') ? {} : hud.tab.value === 'school-level' ? (schoolRivals.length ? { rivals: schoolRivals } : {}) : isToday() && rivals.length ? { rivals } : {}) });
   r.setOnFinish((log) => {
     if (!replayLog) store.set(RACES_KEY, String(racesDone() + 1));
     lastLog = log.slice();
@@ -295,15 +311,17 @@ function App() {
         hud.tab.value = 'school-list';
         setTick((n) => n + 1);
       }}
-      onPickLevel={(id) => {
+      onPickLevel={async (id) => {
         const c = courseById(id);
         if (!c) return;
+        await loadLevelTop(id);
         hud.tab.value = 'school-level';
         pick(c);
       }}
-      onNextLevel={(id) => {
+      onNextLevel={async (id) => {
         const c = courseById(id);
         if (!c) return;
+        await loadLevelTop(id);
         hud.tab.value = 'school-level';
         course = c;
         resetHud();
@@ -336,6 +354,18 @@ function App() {
         setGuide('closed');
       }}
       onRestart={() => {
+        // A restart in the first seconds gives the attempt back.
+        if (token) {
+          const t = token;
+          token = null;
+          void api
+            .abandon(t)
+            .then((r) => {
+              const d = hud.daily.value;
+              if (d) hud.daily.value = { ...d, attempts: r.attempts };
+            })
+            .catch(() => undefined);
+        }
         setGuide('closed');
         resetHud();
         race = newRace();

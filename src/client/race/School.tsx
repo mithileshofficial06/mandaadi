@@ -22,7 +22,7 @@ export function SchoolList(onPick: (id: string) => void) {
               <b>
                 {s + 1}. {st.name}
               </b>
-              <span>{open ? `${got} / 15 ★` : `🔒 ${STAGE_GATE} ★ in stage ${s} to open`}</span>
+              <span>{open ? `${got} / 15 ★` : `🔒 ${STAGE_GATE} ★ or all of stage ${s}`}</span>
             </header>
             {open && <p class="stage__lesson">{st.lesson}</p>}
             <div class="stage__levels">
@@ -61,6 +61,11 @@ export function LevelIntro(id: string) {
         <span>★ finish</span>
         {best ? <span class="is-best">Best {fmtTicks(best)}</span> : null}
       </p>
+      {hud.levelTop.value && (
+        <p class="lvlintro__top">
+          Fastest redditor <b>u/{hud.levelTop.value.name}</b> {fmtTicks(hud.levelTop.value.ticks)}: their boat sails with you
+        </p>
+      )}
     </div>
   );
 }

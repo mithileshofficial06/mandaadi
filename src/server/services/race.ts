@@ -1,6 +1,6 @@
 // Daily race: attempts, server-verified times, leaderboard, ghosts, routes and sharing.
 // A time only counts if the server re-sails the player's input log and gets that exact time.
-import { PARS, type SchoolBest, dailyCourse, findLevel, starsFor } from '../../shared/content/school';
+import { PARS, type SchoolBest, dailyCourse, findLevel, starsFor, totalStarsOf } from '../../shared/content/school';
 import { type Course, PHYSICS_VERSION } from '../../shared/core/course';
 import { TICK_HZ } from '../../shared/core/fixed';
 import { decodeInputs } from '../../shared/core/inputs';
@@ -33,6 +33,9 @@ const k = {
   shared: (date: string, uid: string) => `shared:${date}:${uid}`,
   livery: (uid: string) => `livery:${uid}`,
   school: (uid: string) => `school:${uid}`,
+  slb: (levelId: string) => `slb:v${PHYSICS_VERSION}:${levelId}`,
+  srun: (levelId: string) => `srun:v${PHYSICS_VERSION}:${levelId}`,
+  gold: (uid: string) => `gold:${uid}`,
 };
 const kv = () => platform().kv;
 const expiry = (s: number) => new Date(platform().now() + s * 1000);
@@ -116,14 +119,14 @@ export async function finishRace(tokenId: string, logStr: string, livery: Livery
   if (elapsed < ((res.ticks * 1000) / TICK_HZ) * 0.8) throw new ApiErr('too-fast', 'That race finished faster than the clock allows.', 400);
 
   const p = await par(course);
+  // Far faster than the Harbourmaster is beyond what people sail: keep it off the board.
+  if (p > 0 && res.ticks * 100 < p * 80) throw new ApiErr('too-fast', 'That time beats the Harbourmaster by more than 20%, so it was not counted.', 400);
   const prev = await kv().zScore(k.lb(tok.date), tok.uid);
   const improved = prev === undefined || res.ticks < prev;
   const medal = medalFor(res.ticks, p);
   if (medal === 'harbourmaster') {
-    // Beat the Harbourmaster: it shows on the sailor's flair in this subreddit.
-    await platform()
-      .reddit.setUserFlair(tok.name, `🥇 Harbourmaster · Day ${dayNumber(tok.date)}`)
-      .catch((e) => console.warn('flair failed:', String(e).slice(0, 160)));
+    await kv().set(k.gold(tok.uid), String(dayNumber(tok.date)));
+    await updateFlair(tok.uid, tok.name);
   }
   if (improved) await storeRun(tok.date, tok.uid, { name: tok.name, ticks: res.ticks, log: logStr, livery: cleanLivery(livery) }, res.route);
   // Remember the day of the first ever finish: the warm-up bonus lasts that whole day.
@@ -154,6 +157,35 @@ export async function saveLivery(l: LiveryDto | null): Promise<void> {
   await kv().set(k.livery(uid), JSON.stringify(clean));
 }
 
+/** Flair: School stars, plus the last day the sailor beat the Harbourmaster. */
+async function updateFlair(uid: string, name: string): Promise<void> {
+  try {
+    const [best, gold] = await Promise.all([schoolBest(uid), kv().get(k.gold(uid))]);
+    const stars = totalStarsOf(best);
+    const text = [stars ? `⛵ ${stars}★` : '', gold ? `🥇 Harbourmaster · Day ${gold}` : ''].filter(Boolean).join(' · ');
+    if (text) await platform().reddit.setUserFlair(name, text);
+  } catch (e) {
+    console.warn('flair failed:', String(e).slice(0, 160));
+  }
+}
+
+/** Give the attempt back if a ranked race is restarted within its first seconds. */
+export async function abandonRace(tokenId: string) {
+  const ctx = platform().ctx();
+  const raw = typeof tokenId === 'string' ? await kv().get(k.tok(tokenId)) : undefined;
+  const tok = raw ? (JSON.parse(raw) as Token) : null;
+  let refunded = false;
+  if (tok && tok.uid === ctx.userId) {
+    await kv().del(k.tok(tokenId));
+    // 3 s countdown + 10 s of sailing
+    if (platform().now() - tok.t < 13_000) {
+      await kv().incrBy(k.att(tok.date, tok.uid), -1);
+      refunded = true;
+    }
+  }
+  return { refunded, attempts: await attempts(tok?.date ?? today(), ctx.userId) };
+}
+
 function cleanLivery(l: LiveryDto | null): LiveryDto | null {
   const hex = (s: unknown) => typeof s === 'string' && /^#[0-9a-f]{6}$/i.test(s);
   if (!l || !hex(l.hull) || !hex(l.band) || typeof l.sailNo !== 'string' || !/^[0-9]{1,3}$/.test(l.sailNo)) return null;
@@ -164,7 +196,8 @@ export async function board(date: string, uid: string | undefined) {
   const p = await par(courseFor(date));
   const top = await kv().zRange(k.lb(date), 0, 9, { by: 'rank' });
   const runs = top.length ? await kv().hMGet(k.runs(date), top.map((m) => m.member)) : [];
-  const rows = top.map((m, i) => rowOf(i + 1, runs[i] ? (JSON.parse(runs[i]!) as Run).name : '?', m.score, p, m.member === uid));
+  const schools = await Promise.all(top.map((m) => schoolBest(m.member)));
+  const rows = top.map((m, i) => ({ ...rowOf(i + 1, runs[i] ? (JSON.parse(runs[i]!) as Run).name : '?', m.score, p, m.member === uid), stars: totalStarsOf(schools[i]!) }));
   const [me, sailors] = await Promise.all([myBest(date, uid, p), kv().zCard(k.lb(date))]);
   return { rows, me, sailors, par: p };
 }
@@ -264,7 +297,7 @@ export async function schoolBest(uid: string | undefined): Promise<SchoolBest> {
 }
 
 /** Re-sails a School level from its input log and keeps the best time. No attempts limit. */
-export async function schoolFinish(levelId: string, logStr: string) {
+export async function schoolFinish(levelId: string, logStr: string, livery: LiveryDto | null = null) {
   const ctx = platform().ctx();
   if (!ctx.userId) throw new ApiErr('login', 'Log in to Reddit to save your School progress.', 401);
   const lv = typeof levelId === 'string' ? findLevel(levelId) : null;
@@ -275,7 +308,24 @@ export async function schoolFinish(levelId: string, logStr: string) {
   if (!res.finished) throw new ApiErr('not-finished', 'The harbour did not see you cross the finish line.', 400);
   const prev = Number((await kv().hGet(k.school(ctx.userId), levelId)) ?? 0);
   const improved = !prev || res.ticks < prev;
-  if (improved) await kv().hSet(k.school(ctx.userId), { [levelId]: String(res.ticks) });
   const par = PARS[levelId] ?? 0;
+  if (improved) {
+    await kv().hSet(k.school(ctx.userId), { [levelId]: String(res.ticks) });
+    await kv().zAdd(k.slb(levelId), { member: ctx.userId, score: res.ticks });
+    const run: Run = { name: ctx.username ?? 'sailor', ticks: res.ticks, log: logStr, livery: cleanLivery(livery), v: PHYSICS_VERSION };
+    await kv().hSet(k.srun(levelId), { [ctx.userId]: JSON.stringify(run) });
+    if (starsFor(res.ticks, par) > starsFor(prev, par)) await updateFlair(ctx.userId, ctx.username ?? '');
+  }
   return { ticks: res.ticks, stars: starsFor(res.ticks, par), best: improved ? res.ticks : prev, improved, par };
+}
+
+/** The fastest redditor on a School level, with their run to sail as a ghost. */
+export async function schoolLevel(levelId: string) {
+  if (!findLevel(levelId)) throw new ApiErr('bad-request', 'No such level.');
+  const top = (await kv().zRange(k.slb(levelId), 0, 0, { by: 'rank' }))[0];
+  if (!top) return { fastest: null };
+  const raw = await kv().hGet(k.srun(levelId), top.member);
+  if (!raw) return { fastest: null };
+  const run = JSON.parse(raw) as Run;
+  return { fastest: { name: run.name, ticks: run.ticks, log: run.log, livery: run.livery } };
 }

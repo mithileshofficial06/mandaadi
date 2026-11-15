@@ -6,7 +6,7 @@ export type ApiError = { error: { code: string; message: string } };
 /** A boat's look, as the player painted it. */
 export type LiveryDto = { hull: string; band: string; sailNo: string };
 
-export type BoardRow = { rank: number; name: string; ticks: number; medal: Medal; me?: boolean };
+export type BoardRow = { rank: number; name: string; ticks: number; medal: Medal; me?: boolean; stars?: number };
 
 export type TodayResponse = {
   date: string;
@@ -48,3 +48,6 @@ export type ShareResponse = { ok: true; commentId: string };
 
 export type SchoolResponse = { best: Record<string, number> };
 export type SchoolFinishResponse = { ticks: number; stars: 0 | 1 | 2 | 3; best: number; improved: boolean; par: number };
+
+export type SchoolLevelResponse = { fastest: { name: string; ticks: number; log: string; livery: LiveryDto | null } | null };
+export type AbandonResponse = { refunded: boolean; attempts: { used: number; max: number } };

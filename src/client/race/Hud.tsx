@@ -274,7 +274,7 @@ export function Hud(props: HudProps) {
       <div class="hud hud--ready">
         <section class="startcard startcard--school" aria-label="Sailing School">
           {tabs}
-          <p class="startcard__hint">Six stages, five levels each. Beat the Harbourmaster for three stars. Each stage needs 8 stars from the one before.</p>
+          <p class="startcard__hint">Six stages, five levels each. Beat the Harbourmaster for three stars. Open the next stage with 6 stars, or by finishing every level.</p>
           {SchoolList(props.onPickLevel)}
         </section>
         {guide}
@@ -311,8 +311,13 @@ export function Hud(props: HudProps) {
           <div class="startcard__chart">
             <CourseChart course={course} example />
           </div>
+          <button class="painttoggle" aria-expanded={hud.paintOpen.value} onClick={() => (hud.paintOpen.value = !hud.paintOpen.value)}>
+            <span class="painttoggle__hull" style={{ background: props.livery.hull, borderColor: props.livery.band }} />
+            🎨 Your boat · {props.livery.sailNo}
+            <span aria-hidden="true">{hud.paintOpen.value ? '▴' : '▾'}</span>
+          </button>
+          {hud.paintOpen.value && (
           <div class="paint" aria-label="Paint your vallam">
-            <span>Your boat</span>
             {HULLS.map((c) => (
               <button class={`sw ${props.livery.hull === c ? 'is-on' : ''}`} style={{ background: c }} aria-label={`Hull colour ${c}`} onClick={() => props.onLivery({ ...props.livery, hull: c })} />
             ))}
@@ -332,6 +337,7 @@ export function Hud(props: HudProps) {
               }}
             />
           </div>
+          )}
           {!lvl && DailyStatus(course)}
           <div class="startcard__row">
             <button class="btn btn--ghost" onClick={props.onHelp}>
@@ -543,6 +549,7 @@ function Finish(props: HudProps) {
               <span>{b.rank}</span>
               <b>
                 {MEDAL_ICON[b.medal]} u/{b.name}
+                {b.stars ? <small class="boardstars"> ⛵{b.stars}★</small> : null}
               </b>
               <em>{fmtTicks(b.ticks)}</em>
             </li>

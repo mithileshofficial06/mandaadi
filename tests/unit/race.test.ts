@@ -113,6 +113,23 @@ describe('race flow', () => {
     expect(r.stars).toBeGreaterThan(0);
     expect((await call('GET', '/api/school')).json.best[lv.id]).toBe(r.ticks);
     expect((await call('POST', '/api/school/finish', { levelId: 'nope', log: encodeInputs(rec.log) })).status).toBe(400);
+    as('gus');
+    const top = (await call('GET', `/api/school/level?id=${lv.id}`)).json.fastest;
+    expect(top.name).toBe('fay');
+    expect(top.log.length).toBeGreaterThan(10);
+  });
+
+  it('gives the attempt back for a restart in the first seconds only', async () => {
+    as('hal');
+    const t = (await call('GET', '/api/today')).json;
+    const st = (await call('POST', '/api/race/start', { date: t.date, courseId: t.course.id })).json;
+    p.shiftMs(5_000);
+    const r = (await call('POST', '/api/race/abandon', { token: st.token })).json;
+    expect(r.refunded).toBe(true);
+    expect(r.attempts.used).toBe(0);
+    const st2 = (await call('POST', '/api/race/start', { date: t.date, courseId: t.course.id })).json;
+    p.shiftMs(20_000);
+    expect((await call('POST', '/api/race/abandon', { token: st2.token })).json.refunded).toBe(false);
   });
 
   it('posts one race per day from the scheduler', async () => {

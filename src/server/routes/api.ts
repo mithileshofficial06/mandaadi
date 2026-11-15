@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
-import type { SchoolFinishResponse, SchoolResponse, BoardResponse, FinishResponse, GhostsResponse, LiveryDto, RoutesResponse, ShareResponse, StartResponse, TodayResponse } from '../../shared/api/types';
+import type { AbandonResponse, SchoolLevelResponse, SchoolFinishResponse, SchoolResponse, BoardResponse, FinishResponse, GhostsResponse, LiveryDto, RoutesResponse, ShareResponse, StartResponse, TodayResponse } from '../../shared/api/types';
 import { platform } from '../platform';
 import { ApiErr } from '../services/errors';
-import { schoolBest, schoolFinish, attempts, board, courseFor, dateOfPost, finishRace, ghosts, myBest, par, profile, routes, saveLivery, share, startRace } from '../services/race';
+import { abandonRace, schoolLevel, schoolBest, schoolFinish, attempts, board, courseFor, dateOfPost, finishRace, ghosts, myBest, par, profile, routes, saveLivery, share, startRace } from '../services/race';
 import { dayNumber, today } from '../services/time';
 
 export const api = new Hono();
@@ -82,7 +82,18 @@ api.get('/school', async (c) => {
 });
 
 api.post('/school/finish', async (c) => {
-  const b = await body<{ levelId?: string; log?: string }>(c);
-  const res: SchoolFinishResponse = await schoolFinish(String(b.levelId ?? ''), String(b.log ?? ''));
+  const b = await body<{ levelId?: string; log?: string; livery?: LiveryDto | null }>(c);
+  const res: SchoolFinishResponse = await schoolFinish(String(b.levelId ?? ''), String(b.log ?? ''), b.livery ?? null);
+  return c.json(res);
+});
+
+api.get('/school/level', async (c) => {
+  const res: SchoolLevelResponse = await schoolLevel(c.req.query('id') ?? '');
+  return c.json(res);
+});
+
+api.post('/race/abandon', async (c) => {
+  const b = await body<{ token?: string }>(c);
+  const res: AbandonResponse = await abandonRace(String(b.token ?? ''));
   return c.json(res);
 });

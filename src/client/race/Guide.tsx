@@ -1,5 +1,6 @@
 // "How to sail": three short cards with animated diagrams. Opens on the first visit and from the
 // help button (which pauses the race). Plain SVG + CSS/SMIL animation, no images.
+import { hud } from './hudState';
 import { useState } from 'preact/hooks';
 
 /** animateMotion's path attribute (missing from Preact's SVG types). */
@@ -159,6 +160,7 @@ export function Guide(props: { onClose: () => void; onRestart?: () => void; paus
           ) : props.onRestart ? (
             <button class="btn btn--ghost" onClick={props.onRestart}>
               Restart race
+              {hud.ranked.value.kind === 'ranked' && <small class="restartnote">Free in the first 10 s, then it uses an attempt</small>}
             </button>
           ) : (
             <button class="btn btn--ghost" onClick={props.onClose}>
