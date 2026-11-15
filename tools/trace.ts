@@ -1,6 +1,7 @@
 import { initialState, step } from '../src/shared/core/boat';
 import { Pilot, DEFAULT_PILOT } from '../src/shared/core/pilot';
-import { SANDBAR_SPRINT as c } from '../src/shared/content/courses';
+import { COURSES } from '../src/shared/content/courses';
+const c = COURSES[Number(process.argv[3] ?? 0)]!;
 const side = Number(process.argv[2] ?? 1) as 1 | -1;
 const s = initialState(c);
 const p = new Pilot(c, { ...DEFAULT_PILOT, firstSide: side });

@@ -34,14 +34,15 @@ import { type Spray, createSpray } from '../three/spray';
 import { landOf } from '../three/world';
 import { fmtTicks, hud } from './hudState';
 import { Minimap } from './minimap';
+import { type Rain, WEATHER, createRain } from '../three/weather';
 import { type Festival, createFestival } from '../three/festival';
 import { type Shoals, createShoals } from '../three/shoals';
 
 const RAD = (2 * Math.PI) / ANG;
 /** Sun high and off to one side of the wind, so the glitter path crosses the view but never floods it. */
-function sunFor(windFromRad: number): Vector3 {
-  const az = windFromRad + 1.25;
-  const el = (52 * Math.PI) / 180;
+function sunFor(windFromRad: number, elDeg = 52, azOff = 1.25): Vector3 {
+  const az = windFromRad + azOff;
+  const el = (elDeg * Math.PI) / 180;
   return new Vector3(Math.cos(el) * Math.sin(az), Math.sin(el), -Math.cos(el) * Math.cos(az)).normalize();
 }
 
@@ -114,6 +115,8 @@ export class Race {
   private ghostWake;
   private fog: Fog;
   private sky: Sky;
+  private rain: Rain | null = null;
+  private shiftSide = 0;
   private birds: Birds;
   private ring: WindRing;
   private bots: Bot[] = [];
@@ -158,13 +161,15 @@ export class Race {
       this.resize();
     };
 
-    const sky = new Color('#d8ecf2');
+    const wx = WEATHER[course.type];
+    this.renderer.toneMappingExposure = wx.exposure;
+    const sky = new Color(wx.skyHorizon);
     this.scene.background = sky;
     this.fog = new Fog(sky, 420, 1300);
     this.scene.fog = this.fog;
-    const SUN = sunFor(course.wind.from * RAD);
-    this.scene.add(new HemisphereLight('#cfe9ff', '#d8c79c', 1.25));
-    const sun = new DirectionalLight('#fff1d6', 2.4);
+    const SUN = sunFor(course.wind.from * RAD, wx.sunEl, wx.sunAz);
+    this.scene.add(new HemisphereLight(wx.hemiSky, wx.hemiGround, wx.hemiI));
+    const sun = new DirectionalLight(wx.sun, wx.sunI);
     sun.position.copy(SUN).multiplyScalar(100);
     this.scene.add(sun);
 
@@ -172,7 +177,13 @@ export class Race {
     const windToRad = windFromRad + Math.PI;
     const land = landOf(course);
     this.water = createWater(land, windToRad, SUN, course.wind.strength);
-    this.sky = createSky(SUN);
+    this.sky = createSky(SUN, wx.skyTop, wx.skyHorizon, wx.sun);
+    this.water.material.uniforms.uSkyTop!.value = new Color(wx.skyTop);
+    this.water.material.uniforms.uSkyHorizon!.value = new Color(wx.skyHorizon);
+    if (wx.rain) {
+      this.rain = createRain();
+      this.scene.add(this.rain.lines);
+    }
     this.scene.add(this.sky.mesh);
     const isl = course.islands.map((i) => i.parts[0]!).map((p) => ({ x: p.x, y: p.y }));
     this.birds = createBirds([...isl, { x: -100, y: 120 }, ...(course.marks[0] ? [course.marks[0]] : [])]);
@@ -497,6 +508,12 @@ export class Race {
         }, 4500);
       }
     }
+    if (this.course.wind.shiftAmp > 0 && s.started) {
+      const off = signedA(s.windFrom - this.course.wind.from);
+      const side = off > this.course.wind.shiftAmp * 0.6 ? 1 : off < -this.course.wind.shiftAmp * 0.6 ? -1 : 0;
+      if (side !== 0 && side !== this.shiftSide) this.toast(`Wind shift: swinging ${side > 0 ? 'right' : 'left'}`, 'info', 'If you are pointing further from the mark now, tack', 2400);
+      if (side !== 0) this.shiftSide = side;
+    }
     const gustNow = s.wind > Q10 + 60;
     if (gustNow && !this.inGust) sfx.gust();
     this.inGust = gustNow;
@@ -753,6 +770,7 @@ export class Race {
       return { x: c.x / UM_PER_M, y: c.y / UM_PER_M, r: p.r, k: p.k / 100 };
     });
     this.water.setPuffs(puffs);
+    if (this.course.currents) this.water.setCurrents(this.course.currents.map((c) => ({ x: c.x, y: c.y, r: c.r, dir: c.dir * RAD, speed: c.speed / 10 })));
     this.water.update(t);
     this.land.update(t);
     this.birds.update(t);
@@ -775,6 +793,7 @@ export class Race {
     this.rig.update(Math.max(dt, 0.001), bx, by, bh, (Math.max(0, s.v) * TICK_HZ) / UM_PER_M, aim, t);
     if (hud.phase.value !== 'finished') this.updateHudFrame(tgt, aim, bx, by, windFrom, s);
     this.sky.update(t, this.rig.camera.position);
+    this.rain?.update(this.rig.camera.position, dt);
     this.renderer.render(this.scene, this.rig.camera);
   }
 

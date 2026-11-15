@@ -59,6 +59,9 @@ uniform vec3 uDeep, uMid, uShallow, uSand, uSkyTop, uSkyHorizon;
 uniform float uGustShow;
 uniform float uHaze;
 uniform float uCaps;
+uniform vec4 uCur[3];
+uniform vec2 uCurDir[3];
+uniform int uCurCount;
 varying vec3 vWorld;
 
 float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
@@ -174,6 +177,19 @@ void main() {
     col = mix(col, vec3(0.94, 0.97, 0.98), crest * breakup * life * min(1.0, capAmt) * 0.85);
   }
 
+  // Currents: faint streaks drifting with the flow.
+  for (int i = 0; i < 3; i++) {
+    if (i >= uCurCount) break;
+    vec4 cu = uCur[i];
+    float fade = 1.0 - smoothstep(cu.z * 0.6, cu.z, length(p - cu.xy));
+    if (fade <= 0.0) continue;
+    vec2 f = uCurDir[i];
+    vec2 pp = vec2(-f.y, f.x);
+    float lane = smoothstep(0.965, 1.0, sin(dot(p, pp) * 0.9 + noise(p * 0.04) * 9.0));
+    float dash = smoothstep(0.7, 1.0, fract(dot(p, f) * 0.05 - t * cu.w * 0.05 + noise(p * 0.15) * 1.5)) * noise(p * 0.3 + t * 0.2);
+    col = mix(col, vec3(0.9, 0.97, 1.0), lane * dash * fade * 0.22);
+  }
+
   // Shore foam: a lapping band plus scattered foam just off the beach.
   if (sdf < 4.5) {
     float lap = 0.9 + 0.7 * sin(t * 1.15 - sdf * 1.4 + noise(p * 0.3) * 4.0);
@@ -198,6 +214,7 @@ export type Water = {
   setPuffs(list: Array<{ x: number; y: number; r: number; k: number }>): void;
   update(time: number): void;
   setHaze(near: number): void;
+  setCurrents(list: Array<{ x: number; y: number; r: number; dir: number; speed: number }>): void;
 };
 
 /** Bake land distance (R) and depth (G) into a texture. */
@@ -255,6 +272,9 @@ export function createWater(land: LandShape, windToRad: number, sunDir: Vector3,
       uSkyHorizon: { value: c(palette.skyHorizon) },
       uGustShow: { value: 1 },
       uHaze: { value: 130 },
+      uCur: { value: [new Vector4(), new Vector4(), new Vector4()] },
+      uCurDir: { value: [new Vector2(), new Vector2(), new Vector2()] },
+      uCurCount: { value: 0 },
       uCaps: { value: [0.0, 0.18, 0.45][strength] ?? 0.18 },
     },
   });
@@ -277,6 +297,14 @@ export function createWater(land: LandShape, windToRad: number, sunDir: Vector3,
     },
     update(time) {
       material.uniforms.uTime!.value = time;
+    },
+    setCurrents(list) {
+      const u = material.uniforms;
+      list.slice(0, 3).forEach((c, i) => {
+        (u.uCur!.value as Vector4[])[i]!.set(c.x, -c.y, c.r, c.speed);
+        (u.uCurDir!.value as Vector2[])[i]!.set(Math.sin(c.dir), -Math.cos(c.dir));
+      });
+      u.uCurCount!.value = Math.min(3, list.length);
     },
     setHaze(near) {
       material.uniforms.uHaze!.value = near;

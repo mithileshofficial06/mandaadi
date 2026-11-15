@@ -2,7 +2,7 @@ import '../styles/tokens.css';
 import '../styles/race.css';
 import { render } from 'preact';
 import { useState } from 'preact/hooks';
-import { SANDBAR_SPRINT } from '../../shared/content/courses';
+import { COURSES, SANDBAR_SPRINT } from '../../shared/content/courses';
 import type { Course } from '../../shared/core/course';
 import { api } from '../app/api';
 import { sfx } from '../app/audio';
@@ -71,6 +71,7 @@ function resetHud(): void {
 
 function App() {
   // First visit: open the guide before the first race (skippable). The autopilot debug run skips it.
+  const [, setTick] = useState(0);
   const [guide, setGuide] = useState<'closed' | 'intro' | 'paused'>(store.get(GUIDE_KEY) || params.get('autopilot') ? 'closed' : 'intro');
   const start = () => {
     sfx.unlock();
@@ -87,6 +88,16 @@ function App() {
       onTack={() => race?.tack()}
       onMap={() => race?.toggleMap()}
       onCamera={() => race?.cycleCamera()}
+      courses={COURSES}
+      onPick={(id) => {
+        const c = COURSES.find((k) => k.id === id);
+        if (!c) return;
+        course = c;
+        resetHud();
+        race = newRace();
+        race.idle();
+        setTick((n) => n + 1);
+      }}
       onAgain={() => {
         resetHud();
         race = newRace();
@@ -117,7 +128,7 @@ async function boot(): Promise<void> {
   bootUi()?.to(30);
   try {
     const t = await api.today();
-    course = t.course;
+    course = COURSES.find((c) => c.id === params.get('course')) ?? t.course;
     day = t.day;
   } catch {
     // Offline or harness without a server: sail the built-in course.

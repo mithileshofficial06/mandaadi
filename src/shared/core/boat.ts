@@ -1,4 +1,4 @@
-// The boat model and the race rules: one 30 Hz tick. Identical on the phone and the server.
+﻿// The boat model and the race rules: one 30 Hz tick. Identical on the phone and the server.
 // Integers only (see fixed.ts). All tuning numbers live in TUNE so feel can be adjusted in one place.
 import { BOAT_RADIUS_M, type Course, type Gate, type Mark, ROUND_RADIUS_M, ROUND_SWEEP, SHOAL_BONUS, SHOAL_RADIUS_M, VMAX_10 } from './course';
 import { GUN_TICK, MAX_TICKS, Q10, UM_PER_M, UM_PER_MM, clamp, fdiv, iabs, isqrt, muldiv, rdiv, umPerTick } from './fixed';
@@ -178,12 +178,14 @@ export function initialState(course: Course): BoatState {
   const len = isqrt(nx0 * nx0 * 1_000_000 + ny0 * ny0 * 1_000_000); // in mm units
   const pre = -courseSide(course);
   // gateSide uses cross((b-a),(p-a)); a positive normal (nx0, ny0) points to side +1.
-  const back = 11 * UM_PER_M;
+  // Far enough back that sailing straight on reaches the line at about the gun, in any wind.
+  const v0 = rdiv(muldiv(vmax(course), polar(deg(48)), Q10) * 4, 5);
+  const back = muldiv(v0 * GUN_TICK, cosA(deg(40)), Q14) + 5 * UM_PER_M;
   const x = Math.round(midX + (pre * back * nx0 * 1000) / len);
   const y = Math.round(midY + (pre * back * ny0 * 1000) / len);
   const w = course.wind.from;
   const h = wrapA(w - deg(48));
-  const v = rdiv(muldiv(vmax(course), polar(deg(48)), Q10) * 4, 5);
+  const v = v0;
   return {
     tick: 0,
     x,

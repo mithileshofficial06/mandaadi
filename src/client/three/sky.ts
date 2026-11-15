@@ -53,7 +53,7 @@ void main() {
 
 export type Sky = { mesh: Mesh; update(time: number, camPos: Vector3): void };
 
-export function createSky(sunDir: Vector3): Sky {
+export function createSky(sunDir: Vector3, top = '#3f8fca', horizon = '#d9ecf2', sunCol = '#fff2d8'): Sky {
   const mat = new ShaderMaterial({
     vertexShader: vert,
     fragmentShader: frag,
@@ -61,9 +61,9 @@ export function createSky(sunDir: Vector3): Sky {
     depthWrite: false,
     fog: false,
     uniforms: {
-      uTop: { value: new Color('#3f8fca') },
-      uHorizon: { value: new Color('#d9ecf2') },
-      uSun: { value: new Color('#fff2d8') },
+      uTop: { value: new Color(top) },
+      uHorizon: { value: new Color(horizon) },
+      uSun: { value: new Color(sunCol) },
       uSunDir: { value: sunDir.clone().normalize() },
       uTime: { value: 0 },
     },

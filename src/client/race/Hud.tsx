@@ -147,6 +147,8 @@ export type HudProps = {
   onTack: () => void;
   onMap: () => void;
   onCamera: () => void;
+  courses: Course[];
+  onPick: (id: string) => void;
   onAgain: () => void;
   onHelp: () => void;
   onCloseGuide: () => void;
@@ -193,6 +195,16 @@ export function Hud(props: HudProps) {
           <div class="startcard__chart">
             <CourseChart course={course} example />
           </div>
+          <label class="picker">
+            <span>Practice another course</span>
+            <select value={course.id} onChange={(e) => props.onPick((e.target as HTMLSelectElement).value)}>
+              {props.courses.map((c) => (
+                <option value={c.id}>
+                  {c.name} · {TYPE_LABEL[c.type]}
+                </option>
+              ))}
+            </select>
+          </label>
           <div class="startcard__row">
             <button class="btn btn--ghost" onClick={props.onHelp}>
               How to sail
