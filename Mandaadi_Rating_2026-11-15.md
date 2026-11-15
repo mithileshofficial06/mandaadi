@@ -125,3 +125,34 @@ Courses now have real decisions and rising School targets; School is social (fas
 
 ## Verdict
 **Ship-ready as a product; not yet as an entry.** The build is now about as good as it can be made without players. Everything left is people: players, testers, a video.
+
+---
+
+# Re-rating (2026-11-16, v0.0.11: home screen, exit, public subreddit)
+
+| Criterion | Last | Now | Ceiling |
+|---|---|---|---|
+| Delightful UX | 8 | 8.5 | 9 |
+| Polish | 8 | 8.5 | 9 |
+| Reddit-y | 7 | 7 | 8.5 |
+| Daily Content | 8 | 8 | 8.5 |
+| **Overall** | **7.5** | **8 / 10 as a build** | **8.5-9** |
+
+On judging day with an empty board it would land nearer 7: half the criteria reward a living community.
+
+## What moved it
+A proper home screen (brand, today's race with your status, School progress, next-race countdown), a clean exit, and a public subreddit that people can now visit.
+
+## Findings, ranked
+| # | Severity | Finding | Status | Fix |
+|---|---|---|---|---|
+| 1 | Critical | No real players yet (board, ghosts, wake map, School leaders all empty). | Confirmed | Share the subreddit now; aim for 20-50 sailors over several days. |
+| 2 | High | No real phone test in the Reddit app. | Confirmed | One race on iPhone and on Android. |
+| 3 | High | No demo video. | Confirmed | Record once the board is busy. |
+| 4 | High | Not tested on non-sailors. | Confirmed | 19 Nov testers. |
+| 5 | Medium | The subreddit is bare (no icon, banner, rules or welcome post); the name ends in _dev. | Confirmed | Add an icon, banner and a pinned welcome post; consider a cleaner name for the final entry. |
+| 6 | Medium | The playtest member cap (200) applies until the app is published (after 9 Dec). | Confirmed | Fine for testing; plan the publish. |
+| 7 | Low | The midnight auto-post has not been seen firing yet. | Suspected | Check after 00:00 UTC. |
+
+## Verdict
+**The game is ready; go get players.** The code is no longer the limiting factor.
