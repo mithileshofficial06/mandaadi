@@ -34,6 +34,8 @@ import { type Spray, createSpray } from '../three/spray';
 import { landOf } from '../three/world';
 import { fmtTicks, hud } from './hudState';
 import { Minimap } from './minimap';
+import { type SeaLife, createSeaLife } from '../three/seaLife';
+import { type Livery } from '../three/boatModel';
 import { type Rain, WEATHER, createRain } from '../three/weather';
 import { type Festival, createFestival } from '../three/festival';
 import { type Shoals, createShoals } from '../three/shoals';
@@ -84,7 +86,7 @@ const vibrate = (p: number | number[]) => {
   }
 };
 
-export type RaceOpts = { coach: boolean; laylines: boolean; reducedMotion: boolean };
+export type RaceOpts = { coach: boolean; laylines: boolean; reducedMotion: boolean; livery?: Livery };
 
 export class Race {
   private renderer: WebGLRenderer;
@@ -120,6 +122,7 @@ export class Race {
   private birds: Birds;
   private ring: WindRing;
   private bots: Bot[] = [];
+  private sea: SeaLife;
   private festival: Festival;
   private place = 0;
   private mini: Minimap | null = null;
@@ -192,6 +195,8 @@ export class Race {
       this.shoals = createShoals(course.shoals);
       this.scene.add(this.shoals.group);
     }
+    this.sea = createSeaLife();
+    this.scene.add(this.sea.group, this.sea.wake.mesh);
     this.festival = createFestival(course);
     this.scene.add(this.festival.group);
     this.spray = createSpray();
@@ -209,7 +214,7 @@ export class Race {
     this.ghostWake = createWake({ life: 9, opacity: 0.45 });
     this.scene.add(this.wake.mesh, this.ghostWake.mesh);
 
-    this.boat = createBoat(LIVERIES[0]!);
+    this.boat = createBoat(opts.livery ?? LIVERIES[0]!);
     this.ghostBoat = createBoat({ ...LIVERIES[1]!, sailNo: 'HM' }, { ghost: true });
     this.scene.add(this.boat.root, this.ghostBoat.root);
 
@@ -775,6 +780,7 @@ export class Race {
     this.land.update(t);
     this.birds.update(t);
     this.festival.update(t);
+    this.sea.update(t, dt, { x: bx, y: by, h: bh });
     this.shoals?.update(t);
     this.marks.update(t);
 

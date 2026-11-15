@@ -6,6 +6,10 @@ import type { Course } from '../../shared/core/course';
 import { sfx } from '../app/audio';
 import { type Route, drawChart, sideOf } from './chart';
 import { Guide } from './Guide';
+import type { Livery } from '../three/boatModel';
+
+const HULLS = ['#1f5fa8', '#1d7a5c', '#b8322a', '#e0a526', '#5b3f8f', '#2a2a2a'];
+const BANDS = ['#c8372d', '#f1c232', '#1f3f78', '#f4f1ea', '#3aa6a0'];
 import { type SailStatus, fmtTicks, hud } from './hudState';
 
 const TYPE_LABEL: Record<string, string> = {
@@ -149,6 +153,8 @@ export type HudProps = {
   onCamera: () => void;
   courses: Course[];
   onPick: (id: string) => void;
+  livery: Livery;
+  onLivery: (l: Livery) => void;
   onAgain: () => void;
   onHelp: () => void;
   onCloseGuide: () => void;
@@ -194,6 +200,27 @@ export function Hud(props: HudProps) {
           <p class="startcard__hint">Zigzag up to the mark, round it, race back through the line</p>
           <div class="startcard__chart">
             <CourseChart course={course} example />
+          </div>
+          <div class="paint" aria-label="Paint your vallam">
+            <span>Your boat</span>
+            {HULLS.map((c) => (
+              <button class={`sw ${props.livery.hull === c ? 'is-on' : ''}`} style={{ background: c }} aria-label={`Hull colour ${c}`} onClick={() => props.onLivery({ ...props.livery, hull: c })} />
+            ))}
+            <i />
+            {BANDS.map((c) => (
+              <button class={`sw sw--band ${props.livery.band === c ? 'is-on' : ''}`} style={{ background: c }} aria-label={`Rail colour ${c}`} onClick={() => props.onLivery({ ...props.livery, band: c })} />
+            ))}
+            <input
+              class="sailno"
+              inputMode="numeric"
+              maxLength={3}
+              aria-label="Sail number"
+              value={props.livery.sailNo}
+              onChange={(e) => {
+                const v = (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '').slice(0, 3);
+                if (v) props.onLivery({ ...props.livery, sailNo: v });
+              }}
+            />
           </div>
           <label class="picker">
             <span>Practice another course</span>

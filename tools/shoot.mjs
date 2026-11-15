@@ -57,7 +57,7 @@ await page.keyboard.press('Space');
 await page.waitForTimeout(1200);
 await page.screenshot({ path: `${out}/6-tack.png` });
 
-await page.getByRole('button', { name: 'Show the whole course' }).click();
+await page.locator('#minimap').click();
 await page.waitForTimeout(1500);
 await page.screenshot({ path: `${out}/7-map.png` });
 

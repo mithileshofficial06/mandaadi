@@ -7,6 +7,7 @@ import type { Course } from '../../shared/core/course';
 import { api } from '../app/api';
 import { sfx } from '../app/audio';
 import { Race } from './game';
+import { LIVERIES, type Livery } from '../three/boatModel';
 import { Hud } from './Hud';
 import { hud } from './hudState';
 
@@ -32,6 +33,16 @@ const store = {
 };
 const RACES_KEY = 'mandaadi.races';
 const GUIDE_KEY = 'mandaadi.guideSeen';
+const LIVERY_KEY = 'mandaadi.livery';
+export function myLivery(): Livery {
+  try {
+    const v = JSON.parse(store.get(LIVERY_KEY) ?? 'null') as Livery | null;
+    if (v && v.hull && v.band && v.sailNo) return { ...LIVERIES[0]!, ...v };
+  } catch {
+    /* ignore */
+  }
+  return LIVERIES[0]!;
+}
 const racesDone = () => Number(store.get(RACES_KEY) ?? '0') || 0;
 
 let canvas = document.getElementById('sea') as HTMLCanvasElement;
@@ -54,7 +65,7 @@ function newRace(): Race {
     canvas = fresh;
   }
   const done = racesDone();
-  const r = new Race(canvas, course, { coach: done < 2, laylines: done < 3, reducedMotion: reduced });
+  const r = new Race(canvas, course, { coach: done < 2, laylines: done < 3, reducedMotion: reduced, livery: myLivery() });
   r.setOnFinish(() => store.set(RACES_KEY, String(racesDone() + 1)));
   return r;
 }
@@ -89,6 +100,13 @@ function App() {
       onMap={() => race?.toggleMap()}
       onCamera={() => race?.cycleCamera()}
       courses={COURSES}
+      livery={myLivery()}
+      onLivery={(l) => {
+        store.set(LIVERY_KEY, JSON.stringify(l));
+        race = newRace();
+        race.idle();
+        setTick((n) => n + 1);
+      }}
       onPick={(id) => {
         const c = COURSES.find((k) => k.id === id);
         if (!c) return;
