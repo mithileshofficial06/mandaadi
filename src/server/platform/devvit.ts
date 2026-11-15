@@ -97,6 +97,10 @@ export const devvitPlatform: Platform = {
       await reddit.setUserFlair({ subredditName: context.subredditName ?? '', username, text });
     },
     getSnoovatarUrl: (u) => reddit.getSnoovatarUrl(u),
+    async isModerator(username) {
+      const mods = await reddit.getModerators({ subredditName: context.subredditName ?? '', username }).all();
+      return mods.some((m) => m.username.toLowerCase() === username.toLowerCase());
+    },
     async removePost(postId) {
       const post = await reddit.getPostById(asT3(postId));
       await post.remove();

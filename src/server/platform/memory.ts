@@ -261,6 +261,9 @@ export function createMemoryPlatform(startMs = Date.now()): MemoryPlatform {
       async getSnoovatarUrl() {
         return undefined;
       },
+      async isModerator(username) {
+        return username === 'mod';
+      },
       async removePost(postId) {
         p.posts = p.posts.filter((x) => x.id !== postId);
       },

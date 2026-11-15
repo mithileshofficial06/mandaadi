@@ -25,7 +25,8 @@ api.get('/today', async (c) => {
     sailors: b.sailors,
     top: b.rows[0] ?? null,
     profile: prof,
-    dev: /_dev$/i.test(ctx.subredditName),
+    // Test tools only for moderators of a private-style *_dev playtest subreddit.
+    dev: /_dev$/i.test(ctx.subredditName) && !!ctx.username && (await platform().reddit.isModerator(ctx.username).catch(() => false)),
   };
   return c.json(res);
 });

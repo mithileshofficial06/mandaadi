@@ -60,6 +60,8 @@ export type RedditOps = {
   setUserFlair(username: string, text: string): Promise<void>;
   getSnoovatarUrl(username: string): Promise<string | undefined>;
   removePost(postId: string): Promise<void>;
+  /** True if the user moderates the current subreddit. */
+  isModerator(username: string): Promise<boolean>;
 };
 
 export type MediaOps = {
