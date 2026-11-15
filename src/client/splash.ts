@@ -120,6 +120,7 @@ function draw(course: Course): void {
   g.restore();
 }
 
+const ordinal = (n: number) => `${n}${n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th'}`;
 let course: Course = SANDBAR_SPRINT;
 let wakes: RoutesResponse = { routes: [], mine: null };
 const redraw = () => draw(course);
@@ -147,7 +148,7 @@ void fetch('/api/today')
       sub.textContent = t.top ? `Closed · won by u/${t.top.name} in ${fmt(t.top.ticks)} · ${t.sailors} sailors` : 'This race day has closed.';
       cta.textContent = 'Practise this course';
     } else if (t.best) {
-      sub.textContent = `Your best ${fmt(t.best.ticks)} · ${t.best.rank} of ${t.sailors}${t.top && t.best.rank > 1 ? ` · leader u/${t.top.name} ${fmt(t.top.ticks)}` : ''}`;
+      sub.textContent = `Your best ${fmt(t.best.ticks)} · ${ordinal(t.best.rank)} of ${t.sailors}${t.top && t.best.rank > 1 ? ` · leader u/${t.top.name} ${fmt(t.top.ticks)}` : ''}`;
       cta.textContent = left > 0 ? `Beat your time (${left} left)` : 'Practise the course';
     } else if (t.top) {
       sub.textContent = `${t.sailors} ${t.sailors === 1 ? 'sailor' : 'sailors'} today · fastest u/${t.top.name} ${fmt(t.top.ticks)}. Find a faster line.`;

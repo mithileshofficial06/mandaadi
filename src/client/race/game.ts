@@ -1,6 +1,7 @@
 // The race: scene, fixed 30 Hz simulation with interpolated rendering, input recording,
 // the Harbourmaster ghost, sound, haptics and HUD updates.
 import {
+  CanvasTexture,
   Color,
   DirectionalLight,
   Fog,
@@ -8,6 +9,8 @@ import {
   NeutralToneMapping,
   Scene,
   SRGBColorSpace,
+  Sprite,
+  SpriteMaterial,
   Vector3,
   WebGLRenderer,
 } from 'three';
@@ -78,6 +81,33 @@ function swellSlope(x: number, y: number, h: number, t: number): { pitch: number
   // forward in xz is (sin h, -cos h); right is (cos h, sin h)
   return { pitch: (gx * Math.sin(h) - gz * Math.cos(h)) * 1.4, roll: (gx * Math.cos(h) + gz * Math.sin(h)) * 1.4 };
 }
+/** A floating name tag above a real player's ghost boat. */
+function nameTag(text: string, colour: string): Sprite {
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 64;
+  const g = c.getContext('2d')!;
+  g.font = '700 30px "Barlow Condensed", system-ui, sans-serif';
+  const w = Math.min(248, g.measureText(text).width + 28);
+  g.fillStyle = 'rgba(8,30,40,0.78)';
+  g.beginPath();
+  g.roundRect((256 - w) / 2, 8, w, 46, 23);
+  g.fill();
+  g.fillStyle = colour;
+  g.fillRect((256 - w) / 2 + 12, 27, 8, 8);
+  g.fillStyle = '#f4f1ea';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(text, 128 + 6, 32);
+  const tex = new CanvasTexture(c);
+  tex.colorSpace = SRGBColorSpace;
+  const sp = new Sprite(new SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  sp.scale.set(4.4, 1.1, 1);
+  sp.position.set(0, 9.6, 0);
+  sp.renderOrder = 5;
+  return sp;
+}
+
 /** Start the intro orbit looking at the boat's bow quarter. */
 const s0Angle = (heading: number) => heading + 2.4;
 
@@ -243,6 +273,7 @@ export class Race {
         const s = initialState(course);
         const model = createBoat({ ...LIVERIES[(i + 1) % LIVERIES.length]!, ...(r.livery ?? {}) }, { ghost: true });
         const wake = createWake({ life: 8, opacity: 0.45 });
+        model.root.add(nameTag(r.name, r.name === 'Your best' ? '#ff6b1a' : '#2fb3b0'));
         this.scene.add(model.root, wake.mesh);
         this.bots.push({ name: r.name, s, prev: { x: s.x, y: s.y, h: s.h }, pilot: new Pilot(course), model, wake, player: new InputPlayer(r.log) });
       });
