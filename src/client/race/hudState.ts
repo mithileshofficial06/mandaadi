@@ -46,7 +46,7 @@ export const hud = {
   place: signal(''),
   /** 0 no tack in progress, 1 tacking (tap soon), 2 tap now for a perfect tack. */
   tackWindow: signal(0),
-  camMode: signal<'chase' | 'low' | 'top'>('chase'),
+  camMode: signal<'drive' | 'chase' | 'low' | 'top'>('drive'),
   marker: signal<{ x: number; y: number; edge: boolean; angle: number; label: string; dist: number } | null>(null),
   error: signal<string | null>(null),
 };

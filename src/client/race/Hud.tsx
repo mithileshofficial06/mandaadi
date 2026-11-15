@@ -33,7 +33,7 @@ const STATUS: Record<SailStatus, string> = {
 
 const compassName = (a: number) => COMPASS[Math.round(((a % 4096) / 4096) * 8) % 8]!;
 
-const CAM = { chase: 'Chase', low: 'Low', top: 'Top' } as const;
+const CAM = { drive: 'Behind', chase: 'High', low: 'Low', top: 'Top' } as const;
 type IconName = 'sound' | 'mute' | 'map' | 'boat' | 'help' | 'cam';
 function Icon({ name }: { name: IconName }) {
   const p = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' } as const;

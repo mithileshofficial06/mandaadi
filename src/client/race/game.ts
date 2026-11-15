@@ -267,8 +267,8 @@ export class Race {
       mc.onclick = () => this.toggleMap();
     }
     try {
-      const m = localStorage.getItem('mandaadi.cam');
-      if (m === 'low' || m === 'top' || m === 'chase') this.rig.mode = m;
+      const m = localStorage.getItem('mandaadi.cam2');
+      if (m === 'drive' || m === 'low' || m === 'top' || m === 'chase') this.rig.mode = m;
     } catch {
       /* ignore */
     }
@@ -361,11 +361,11 @@ export class Race {
   }
 
   cycleCamera(): void {
-    const order = ['chase', 'low', 'top'] as const;
+    const order = ['drive', 'chase', 'low', 'top'] as const;
     this.rig.mode = order[(order.indexOf(this.rig.mode) + 1) % order.length]!;
     hud.camMode.value = this.rig.mode;
     try {
-      localStorage.setItem('mandaadi.cam', this.rig.mode);
+      localStorage.setItem('mandaadi.cam2', this.rig.mode);
     } catch {
       /* ignore */
     }

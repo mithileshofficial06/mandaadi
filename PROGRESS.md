@@ -1,4 +1,4 @@
-# Mandaadi: progress
+﻿# Mandaadi: progress
 
 > Read this first. Resume from **Next**. Update at the end of every session.
 
@@ -37,6 +37,8 @@ DONE 10. Paint your vallam (hull colours, eye, sail patch, flag), unlocked by ra
 Status 2026-11-15 night: ALL 10 DONE (commits 448bb0e..latest). Notes: sea events are dolphins + trawler (no squall yet); paint is local-only (ranks unlock later); longest courses run up to ~122 s with the autopilot (test limit 130 s) - tune towards 50-80 s when the solver lands; map view is ~37 fps unthrottled with the full fleet (racing view 53 fps at 4x throttle). Bots are named after fishing villages and are clearly bots. race.js 191 KB gz.
 Then tier B (Reddit features). Avoid: speed boosts / power-ups (break "same wind, your line").
 
+- Camera: default is now 'Behind' (GTA-style drive cam that follows the boat's heading); camera button cycles Behind / High / Low / Top.
+
 ## Next
 1. **Mithilesh:** check that `mandaadi` is free as a Devvit app name (`devvit new`/upload will say), create `r/mandaadi_dev` (private test sub). If the name is taken, use `mandaadi-race` and update devvit.json `name` + `dev.subreddit`.
 2. First `devvit playtest` on r/mandaadi_dev; test on a real phone in the Reddit app (drag steering inside the webview, double-tap not swallowed, fps).
@@ -49,3 +51,4 @@ Then tier B (Reddit features). Avoid: speed boosts / power-ups (break "same wind
 - Glitter is a bit speckly in extreme close-ups (fine at play zoom).
 - Mainland beach could get fishing huts and beached boats (polish tier).
 - Wind streak effect was removed (looked like rain); `createStreaks` is still in effects.ts, unused.
+

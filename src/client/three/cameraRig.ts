@@ -1,5 +1,7 @@
 // Camera with three blended modes:
 // - orbit: a slow cinematic circle around the boat (start screen, after the finish)
+// - drive (default): like driving a car in a game: low and behind the boat, turning with its
+//   heading after a short lag, so what is ahead of the bow is ahead on screen
 // - follow: three-quarter view from behind, the boat in the lower third, turned so the next
 //   mark is ahead; it does not swing when the boat tacks
 // - map: top-down view of the whole course, north up
@@ -11,6 +13,8 @@ const UP = new Vector3(0, 1, 0);
 
 export const ZOOM_MIN = 7;
 export const ZOOM_MAX = 40;
+
+export type CamMode = 'drive' | 'chase' | 'low' | 'top';
 
 export class CameraRig {
   readonly camera = new PerspectiveCamera(55, 1, 0.5, 3000);
@@ -26,7 +30,10 @@ export class CameraRig {
   /** Half the visible width at the boat, in metres (zoom). */
   halfWidth = 11.5;
   /** chase: behind and above; low: near the water, horizon in view; top: overhead tactical. */
-  mode: 'chase' | 'low' | 'top' = 'chase';
+  mode: CamMode = 'drive';
+  private headYaw = 0;
+  private headVel = 0;
+  private driveK = 1;
   private pitchNow = 47;
   private distK = 1;
   reducedMotion = false;
@@ -70,13 +77,15 @@ export class CameraRig {
     this.ty = y;
     this.yaw = this.reducedMotion ? 0 : yaw;
     this.yawVel = 0;
+    this.headYaw = yaw;
+    this.headVel = 0;
   }
 
   /**
    * x, y: boat position (course metres); heading: compass rad; speed: m/s;
    * aimYaw: compass bearing to the next mark (rad).
    */
-  update(dt: number, x: number, y: number, _heading: number, _speed: number, aimYaw: number, time: number): void {
+  update(dt: number, x: number, y: number, heading: number, _speed: number, aimYaw: number, time: number): void {
     const cam = this.camera;
     if (this.fixed) {
       x = this.fixed.x;
@@ -96,6 +105,11 @@ export class CameraRig {
     const w0 = 1.2;
     this.yawVel += (w0 * w0 * err - 2 * w0 * this.yawVel) * dt;
     this.yaw = wrapPi(this.yaw + this.yawVel * dt);
+    // Drive yaw: follows the boat's heading with a short, critically damped lag.
+    const herr = wrapPi((this.fixed ? aimYaw : heading) - this.headYaw);
+    const w1 = 2.4;
+    this.headVel += (w1 * w1 * herr - 2 * w1 * this.headVel) * dt;
+    this.headYaw = wrapPi(this.headYaw + this.headVel * dt);
 
     const ease = (cur: number, to: number, rate: number) => cur + (to - cur) * (1 - Math.exp(-dt * rate));
     this.map = ease(this.map, this.mapTarget, 4);
@@ -121,7 +135,29 @@ export class CameraRig {
     const fly = this.ty + cy * lead;
     const fpx = flx - sy * Math.cos(pitch) * followDist;
     const fpy = fly - cy * Math.cos(pitch) * followDist;
-    const fph = Math.sin(pitch) * followDist;
+    let fph = Math.sin(pitch) * followDist;
+    let fpx2 = fpx;
+    let fpy2 = fpy;
+    let flx2 = flx;
+    let fly2 = fly;
+    let flh = this.mode === 'low' ? 1.5 : 0;
+
+    // ---- drive pose: close behind the stern, eye a few metres up, looking past the bow ----
+    this.driveK = ease(this.driveK, this.mode === 'drive' ? 1 : 0, 3);
+    if (this.driveK > 0.001) {
+      const hs = Math.sin(this.headYaw);
+      const hc = Math.cos(this.headYaw);
+      const back = 12 + this.halfWidth * 0.8;
+      const up = 4.5 + this.halfWidth * 0.32;
+      const ahead = 16 + this.halfWidth * 0.6;
+      const d = this.driveK;
+      fpx2 = MathUtils.lerp(fpx, this.tx - hs * back, d);
+      fpy2 = MathUtils.lerp(fpy, this.ty - hc * back, d);
+      fph = MathUtils.lerp(fph, up, d);
+      flx2 = MathUtils.lerp(flx, this.tx + hs * ahead, d);
+      fly2 = MathUtils.lerp(fly, this.ty + hc * ahead, d);
+      flh = MathUtils.lerp(flh, 0, d);
+    }
 
     // ---- orbit pose: low and close, circling slowly ----
     const od = 25;
@@ -141,12 +177,12 @@ export class CameraRig {
     const mcy = this.courseCentre.y;
 
     // Blend follow -> orbit, then -> map.
-    let px = MathUtils.lerp(fpx, opx, o);
-    let py = MathUtils.lerp(fpy, opy, o);
+    let px = MathUtils.lerp(fpx2, opx, o);
+    let py = MathUtils.lerp(fpy2, opy, o);
     let ph = MathUtils.lerp(fph, oph, o);
-    let lx = MathUtils.lerp(flx, olx, o);
-    let ly = MathUtils.lerp(fly, oly, o);
-    let lh = MathUtils.lerp(this.mode === 'low' ? 1.5 : 0, olh, o);
+    let lx = MathUtils.lerp(flx2, olx, o);
+    let ly = MathUtils.lerp(fly2, oly, o);
+    let lh = MathUtils.lerp(flh, olh, o);
     px = MathUtils.lerp(px, mcx, m);
     py = MathUtils.lerp(py, mcy - 1, m);
     ph = MathUtils.lerp(ph, mapDist, m);
