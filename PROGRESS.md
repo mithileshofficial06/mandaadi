@@ -58,3 +58,20 @@ Then tier B (Reddit features). Avoid: speed boosts / power-ups (break "same wind
 - Devvit CLI for this project uses its own login dir `~/.devvit-mandaadi` via `tools/dv.mjs` (`npm run dv -- <cmd>`); the default `~/.devvit` (u/mithileshofficial06, Paanai) is untouched.
 - Browser for Reddit chores: the Playwright Chromium with profile `.mandaadi/reddit-profile`, started with `--remote-debugging-port=9333`; `tools/rb.mjs`, `rb-act.mjs`, `rb-race*.mjs` drive it over CDP (Reddit blocks headless).
 - Not yet checked on Reddit: a full race to the finish, phone (Reddit app) view.
+
+## Tier B built (2026-11-15, night) - live on r/mandaadi_race_dev as v0.0.4
+- Ranked races: `/api/race/start` gives a ticket (uses 1 of 3 attempts; first-finish day gets a 4th warm-up attempt), `/api/race/finish` re-sails the input log on the server (rejects unfinished runs and runs faster than real time). Practice when logged out, out of attempts, old post, or another course.
+- Medals vs the Harbourmaster par (`src/shared/core/par.ts`): gold = beat par, silver = within 15%, bronze = finish. Gold sets user flair.
+- Board (top 10 + you), real-player ghosts with name tags (line honours, your best, two just ahead), wake map of everyone's routes on the splash, share to comments (postcard image + time/place/medal/side, as the player, falls back to the app).
+- Daily post: scheduler `daily-rollover` 00:00 UTC; each post remembers its date (`post:<id>`); old posts are practice with the final board.
+- Boat paint and "has finished" kept on the server: Reddit gives each app version a new webview origin, so localStorage resets on every upload.
+- Tuning: VMAX_10 50/70/90 -> 62/86/108, Coral Triangle shortened: pars 64-85 s. `PHYSICS_VERSION` (course.ts) must be bumped on any physics change (ghosts and par cache key on it).
+- Verified on Reddit: splash, start card, ranked API flow (start/finish/board/ghosts/routes/share with image), comment posted as u/kira_-_06, phone-size mobile web with touch steering + tack, no console errors.
+- Not verified: a full race through the real UI on Reddit (only via API + local e2e), a real phone/Reddit app, the 00:00 UTC cron firing (first run tonight should post Day 2).
+- Test data on the dev sub: u/kira_-_06 has a 1:30.7 autopilot test run on Day 1 and one test comment.
+- Tools: `npx tsx tools/pars.ts` (par per course), `tools/genlog.ts`, `rb-api.mjs` (API test on Reddit), `rb-phone.mjs` (phone test), `/__harness/seed?n=40` (harness only: fake sailors for the wake map).
+
+## Next
+1. Real phone in the Reddit app (Mithilesh), and the 19 Nov feel test with 10 testers.
+2. Feel tuning from tester notes (TURN_MAX, LAG_*, TACK_KEEP, camera).
+3. Item 4 (left for later): demo subreddit, video, write-up, publish after 9 Dec.

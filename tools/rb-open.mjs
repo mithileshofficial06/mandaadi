@@ -4,6 +4,7 @@ const b = await chromium.connectOverCDP('http://127.0.0.1:9333');
 const p = b.contexts()[0].pages().find((x) => x.url().includes('/comments/'));
 const errs = [];
 p.on('console', (m) => m.type() === 'error' && !/reddit\.com\/svc|preload/.test(m.text()) && errs.push(m.text().slice(0, 200)));
+await p.bringToFront();
 await p.reload({ waitUntil: 'domcontentloaded' });
 await p.waitForTimeout(9000);
 await p.screenshot({ path: '.mandaadi/r-splash.png' });
