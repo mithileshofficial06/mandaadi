@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Mandaadi daily courses</title>
+    <style>
+      body { margin: 0; padding: 16px; background: #0b3f5c; color: #f4f1ea; font: 600 13px system-ui, sans-serif; }
+      .grid { display: grid; grid-template-columns: repeat(6, 200px); gap: 12px; }
+      .cell canvas { width: 200px; height: 200px; display: block; border-radius: 8px; }
+      .cell p { margin: 4px 0 0; }
+      .cell small { color: #e8c987; }
+    </style>
+  </head>
+  <body>
+    <div class="grid" id="grid"></div>
+    <script type="module" src="./sheet.ts"></script>
+  </body>
+</html>

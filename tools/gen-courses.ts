@@ -40,6 +40,8 @@ type Spec = {
   par: [number, number];
   /** Upwind distance band for the first mark. */
   reach?: [number, number];
+  /** Require the two sides to differ by at least this many seconds (a real decision). */
+  decide?: number;
 };
 
 type Rng = { int(lo: number, hi: number): number; pick<T>(a: readonly T[]): T; chance(p: number): boolean };
@@ -54,6 +56,7 @@ const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.
 function marksFor(r: Rng, s: Spec): Mark[] {
   const [lo, hi] = s.reach ?? [170, 245];
   const m1: Mark = { x: 200 + r.int(-35, 35), y: r.int(lo, hi), round: 'port' };
+  if (lo < 125) return [{ ...m1, x: 200 + r.int(-20, 20) }];
   if (s.marks === 1) return [m1];
   const side = r.chance(0.5) ? 1 : -1;
   const m2: Mark = { x: m1.x + side * r.int(60, 95), y: m1.y + r.int(-70, 10), round: r.chance(0.5) ? 'port' : 'starboard' };
@@ -71,7 +74,7 @@ function marksFor(r: Rng, s: Spec): Mark[] {
 
 function build(id: string, name: string, s: Spec, seed: number): Course {
   const r = rng(seed);
-  const marks = marksFor(r, s).map((m) => ({ ...m, x: Math.max(80, Math.min(320, m.x)), y: Math.max(125, Math.min(300, m.y)) }));
+  const marks = marksFor(r, s).map((m) => ({ ...m, x: Math.max(80, Math.min(320, m.x)), y: Math.max(s.reach && s.reach[0] < 125 ? s.reach[0] : 125, Math.min(300, m.y)) }));
   const avoid: Array<{ x: number; y: number; r: number }> = [...marks.map((m) => ({ x: m.x, y: m.y, r: 26 })), { x: 200, y: 60, r: 50 }];
   const islands: Island[] = [];
   const nIsl = r.int(s.islands[0], s.islands[1]);
@@ -125,25 +128,38 @@ function build(id: string, name: string, s: Spec, seed: number): Course {
   };
 }
 
-function sails(c: Course): boolean {
+/** Finish ticks for the autopilot going left first and right first (0 = failed). */
+function sides(c: Course): [number, number] {
+  const out: number[] = [];
   for (const firstSide of [1, -1] as const) {
     const s = initialState(c);
     const p = new Pilot(c, { ...DEFAULT_PILOT, firstSide });
     while ((s.phase === 'prestart' || s.phase === 'racing') && s.tick <= MAX_TICKS) step(s, c, p.next(s));
-    if (s.phase !== 'finished' || s.hits > 2) return false;
+    out.push(s.phase === 'finished' && s.hits <= 2 ? s.tick : 0);
   }
-  return true;
+  return [out[0]!, out[1]!];
 }
 
-function make(id: string, name: string, s: Spec, seed0: number): { course: Course; par: number } {
-  for (let k = 0; k < 400; k++) {
+/** Courses already chosen, to keep neighbours and lookalikes apart. */
+type Picked = { course: Course; par: number };
+function samey(c: Course, par: number, others: Picked[]): boolean {
+  return others.some((o) => o.course.type === c.type && o.course.marks.length === c.marks.length && Math.abs(o.par - par) < 4 * TICK_HZ);
+}
+
+function make(id: string, name: string, s: Spec, seed0: number, others: Picked[] = []): Picked {
+  const why = { par: 0, samey: 0, fail: 0, decide: 0, pars: [] as number[] };
+  for (let k = 0; k < 3000; k++) {
     const c = build(id, name, s, seed0 * 7919 + k * 104729 + 17);
     const par = parTicks(c);
-    if (!par || par < s.par[0] * TICK_HZ || par > s.par[1] * TICK_HZ) continue;
-    if (!sails(c)) continue;
+    if (k < 12) why.pars.push(Math.round(par / TICK_HZ));
+    if (!par || par < s.par[0] * TICK_HZ || par > s.par[1] * TICK_HZ) { why.par++; continue; }
+    if (samey(c, par, others)) { why.samey++; continue; }
+    const [a, b] = sides(c);
+    if (!a || !b) { why.fail++; continue; }
+    if (s.decide && Math.abs(a - b) < s.decide * TICK_HZ) { why.decide++; continue; }
     return { course: c, par };
   }
-  throw new Error(`no sailable course for ${id}`);
+  throw new Error(`no sailable course for ${id}: ${JSON.stringify(why)}`);
 }
 
 const used = new Set<string>();
@@ -184,24 +200,26 @@ for (let i = 0; i < 30; i++) {
     shoals: [1, 2 + Math.round(d)],
     currents: type === 'tide' ? [1, 2] : d > 0.8 ? [0, 1] : [0, 0],
     par: marks === 3 ? [60, 98] : [55, 92],
+    decide: 1.5,
   };
   // Each day of the cycle gets its own place: 30 places, 30 days.
   const name = `${PLACES[DAY_PLACE[i]!]} ${r.pick(KIND[type])}`;
   used.add(name);
-  daily.push(make(`d${String(i + 1).padStart(2, '0')}`, name, spec, 31 + i));
+  daily.push(make(`d${String(i + 1).padStart(2, '0')}`, name, spec, 31 + i, daily));
 }
 
 // ---------- the Sailing School ----------
 type StageDef = { id: string; name: string; lesson: string; specs: (l: number) => Spec };
 const STAGES: StageDef[] = [
-  { id: 's1', name: 'Harbour Mouth', lesson: 'Steer with one thumb. Sail across the wind, never straight into the red cone.', specs: (l) => ({ type: 'windward', d: l * 0.04, marks: 1, islands: [0, 0], puffs: [0, l > 2 ? 1 : 0], shoals: [0, l > 3 ? 1 : 0], currents: [0, 0], strength: 1, par: [32, 62], reach: [140 + l * 12, 160 + l * 14] }) },
-  { id: 's2', name: 'Beating Upwind', lesson: 'Zigzag up to the mark. Tack when the mark is behind your shoulder.', specs: (l) => ({ type: 'windward', d: 0.15 + l * 0.05, marks: l > 3 ? 2 : 1, islands: [0, l > 2 ? 1 : 0], puffs: [1, 2], shoals: [0, 1], currents: [0, 0], par: [45, 80], reach: [200, 250] }) },
-  { id: 's3', name: 'Pressure', lesson: 'Dark water is more wind. Sail to the gusts, avoid the pale lulls.', specs: (l) => ({ type: l % 2 ? 'light' : 'windward', d: 0.3 + l * 0.05, marks: l > 2 ? 2 : 1, islands: [0, 1], puffs: [3, 4], shoals: [1, 2], currents: [0, 0], par: [50, 88] }) },
-  { id: 's4', name: 'Reef Country', lesson: 'Islands block the way and steal the wind. Plan your side before the start.', specs: (l) => ({ type: 'cup', d: 0.45 + l * 0.05, marks: l > 1 ? 2 : 1, islands: [2, 3 + Math.min(1, l)], puffs: [2, 3], shoals: [1, 2], currents: [0, 0], par: [55, 92] }) },
-  { id: 's5', name: 'Tide Race', lesson: 'The arrows on the water push you. Use the current, or sail out of it.', specs: (l) => ({ type: 'tide', d: 0.6 + l * 0.05, marks: l > 2 ? 2 : 1, islands: [1, 2], puffs: [2, 3], shoals: [1, 2], currents: [1, 2], par: [55, 95] }) },
-  { id: 's6', name: 'Monsoon', lesson: 'Strong wind, big shifts, three marks. Everything you learnt, at speed.', specs: (l) => ({ type: l % 2 ? 'storm' : 'shifty', d: 0.75 + l * 0.05, marks: l > 1 ? 3 : 2, islands: [2, 3], puffs: [3, 4], shoals: [1, 3], currents: [0, l > 2 ? 1 : 0], shift: true, strength: 2, par: [55, 98] }) },
+  { id: 's1', name: 'Harbour Mouth', lesson: 'Steer with one thumb. Sail across the wind, never straight into the red cone.', specs: (l) => ({ type: 'windward', d: l * 0.04, marks: 1, islands: [0, 0], puffs: [0, l > 2 ? 1 : 0], shoals: [0, l > 3 ? 1 : 0], currents: [0, 0], strength: 1, par: [31 + l * 7, 39 + l * 7], reach: [118 + l * 18, 132 + l * 20] }) },
+  { id: 's2', name: 'Beating Upwind', lesson: 'Zigzag up to the mark. Tack when the mark is behind your shoulder.', specs: (l) => ({ type: 'windward', d: 0.15 + l * 0.05, marks: l > 3 ? 2 : 1, islands: [0, l > 2 ? 1 : 0], puffs: [1, 2], shoals: [0, 1], currents: [0, 0], par: [46 + l * 6, 54 + l * 6], decide: 1, reach: [160 + l * 16, 180 + l * 16] }) },
+  { id: 's3', name: 'Pressure', lesson: 'Dark water is more wind. Sail to the gusts, avoid the pale lulls.', specs: (l) => ({ type: l % 2 ? 'light' : 'windward', d: 0.3 + l * 0.05, marks: l > 2 ? 2 : 1, islands: [0, 1], puffs: [3, 4], shoals: [1, 2], currents: [0, 0], par: [50 + l * 7, 58 + l * 7], decide: 1, reach: (l % 2 ? [122 + l * 10, 142 + l * 10] : [150 + l * 12, 172 + l * 12]) as [number, number] }) },
+  { id: 's4', name: 'Reef Country', lesson: 'Islands block the way and steal the wind. Plan your side before the start.', specs: (l) => ({ type: 'cup', d: 0.45 + l * 0.05, marks: l > 1 ? 2 : 1, islands: [2, 3 + Math.min(1, l)], puffs: [2, 3], shoals: [1, 2], currents: [0, 0], par: [54 + l * 7, 62 + l * 7], decide: 1, reach: [148 + l * 15, 172 + l * 15] }) },
+  { id: 's5', name: 'Tide Race', lesson: 'The arrows on the water push you. Use the current, or sail out of it.', specs: (l) => ({ type: 'tide', d: 0.6 + l * 0.05, marks: l > 2 ? 2 : 1, islands: [1, 2], puffs: [2, 3], shoals: [1, 2], currents: [1, 2], par: [56 + l * 7, 64 + l * 7], decide: 1, reach: [150 + l * 15, 175 + l * 15] }) },
+  { id: 's6', name: 'Monsoon', lesson: 'Strong wind, big shifts, three marks. Everything you learnt, at speed.', specs: (l) => ({ type: l % 2 ? 'storm' : 'shifty', d: 0.75 + l * 0.05, marks: l > 1 ? 3 : 2, islands: [2, 3], puffs: [3, 4], shoals: [1, 3], currents: [0, l > 2 ? 1 : 0], shift: true, strength: 2, par: [60 + l * 8, 68 + l * 8], decide: 1, reach: [158 + l * 16, 188 + l * 16] }) },
 ];
 const LEVELS = 5;
+const schoolPicked: Picked[] = [];
 const school = STAGES.map((st, si) => ({
   id: st.id,
   name: st.name,
@@ -209,7 +227,9 @@ const school = STAGES.map((st, si) => ({
   levels: Array.from({ length: LEVELS }, (_, l) => {
     const spec = st.specs(l);
     const r = rng(5000 + si * 100 + l);
-    return make(`${st.id}-${l + 1}`, nameFor(r, spec.type), spec, 700 + si * 50 + l);
+    const lv = make(`${st.id}-${l + 1}`, nameFor(r, spec.type), spec, 700 + si * 50 + l);
+    schoolPicked.push(lv);
+    return lv;
   }),
 }));
 
