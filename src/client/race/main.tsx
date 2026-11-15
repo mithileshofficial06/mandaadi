@@ -43,9 +43,11 @@ export function myLivery(): Livery {
   } catch {
     /* ignore */
   }
-  return LIVERIES[0]!;
+  const server = hud.daily.value?.profile.livery;
+  return server ? { ...LIVERIES[0]!, ...server } : LIVERIES[0]!;
 }
-const racesDone = () => Number(store.get(RACES_KEY) ?? '0') || 0;
+// Local count, but never less than 1 once the server has seen you finish (storage resets per app version).
+const racesDone = () => Math.max(Number(store.get(RACES_KEY) ?? '0') || 0, hud.daily.value?.profile.finishedEver ? 1 : 0);
 
 let canvas = document.getElementById('sea') as HTMLCanvasElement;
 const root = document.getElementById('app')!;
@@ -171,7 +173,7 @@ function resetHud(): void {
 function App() {
   // First visit: open the guide before the first race (skippable). The autopilot debug run skips it.
   const [, setTick] = useState(0);
-  const [guide, setGuide] = useState<'closed' | 'intro' | 'paused'>(store.get(GUIDE_KEY) || params.get('autopilot') ? 'closed' : 'intro');
+  const [guide, setGuide] = useState<'closed' | 'intro' | 'paused'>(store.get(GUIDE_KEY) || hud.daily.value?.profile.finishedEver || params.get('autopilot') ? 'closed' : 'intro');
   const start = () => {
     sfx.unlock();
     store.set(GUIDE_KEY, '1');
@@ -228,6 +230,7 @@ function App() {
       livery={myLivery()}
       onLivery={(l) => {
         store.set(LIVERY_KEY, JSON.stringify(l));
+        void api.livery({ hull: l.hull, band: l.band, sailNo: l.sailNo }).catch(() => undefined);
         race = newRace();
         race.idle();
         setTick((n) => n + 1);

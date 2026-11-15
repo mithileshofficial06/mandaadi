@@ -59,6 +59,14 @@ describe('race flow', () => {
     expect((await call('GET', '/api/routes')).json.routes.length).toBe(1);
     const b = (await call('GET', '/api/board')).json;
     expect(b.sailors).toBe(1);
+    // the boat paint and first-run state live on the server
+    as('alice');
+    expect((await call('POST', '/api/livery', { livery: { hull: '#1d7a5c', band: '#f1c232', sailNo: '42' } })).status).toBe(200);
+    expect((await call('POST', '/api/livery', { livery: { hull: 'red', band: '#f1c232', sailNo: '42' } })).status).toBe(400);
+    const prof = (await call('GET', '/api/today')).json.profile;
+    expect(prof).toEqual({ livery: { hull: '#1d7a5c', band: '#f1c232', sailNo: '42' }, finishedEver: true });
+    // the first-finish day keeps its bonus attempt
+    expect((await call('GET', '/api/today')).json.attempts.max).toBe(4);
   });
 
   it('rejects runs that finish faster than the clock, or never finish', async () => {

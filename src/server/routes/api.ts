@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import type { BoardResponse, FinishResponse, GhostsResponse, LiveryDto, RoutesResponse, ShareResponse, StartResponse, TodayResponse } from '../../shared/api/types';
 import { platform } from '../platform';
 import { ApiErr } from '../services/errors';
-import { attempts, board, courseFor, dateOfPost, finishRace, ghosts, myBest, par, routes, share, startRace } from '../services/race';
+import { attempts, board, courseFor, dateOfPost, finishRace, ghosts, myBest, par, profile, routes, saveLivery, share, startRace } from '../services/race';
 import { dayNumber, today } from '../services/time';
 
 export const api = new Hono();
@@ -12,7 +12,7 @@ api.get('/today', async (c) => {
   const date = await dateOfPost();
   const course = courseFor(date);
   const p = await par(course);
-  const [att, best, b] = await Promise.all([attempts(date, ctx.userId), myBest(date, ctx.userId, p), board(date, ctx.userId)]);
+  const [att, best, b, prof] = await Promise.all([attempts(date, ctx.userId), myBest(date, ctx.userId, p), board(date, ctx.userId), profile(ctx.userId)]);
   const res: TodayResponse = {
     date,
     day: dayNumber(date),
@@ -24,6 +24,7 @@ api.get('/today', async (c) => {
     best,
     sailors: b.sailors,
     top: b.rows[0] ?? null,
+    profile: prof,
   };
   return c.json(res);
 });
@@ -61,6 +62,12 @@ api.get('/ghosts', async (c) => {
 api.get('/routes', async (c) => {
   const res: RoutesResponse = await routes(await dateOfPost(), platform().ctx().userId);
   return c.json(res);
+});
+
+api.post('/livery', async (c) => {
+  const b = await body<{ livery?: LiveryDto | null }>(c);
+  await saveLivery(b.livery ?? null);
+  return c.json({ ok: true });
 });
 
 api.post('/share', async (c) => {

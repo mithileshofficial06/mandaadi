@@ -42,5 +42,6 @@ export const api = {
   board: () => req<BoardResponse>('GET', 'board'),
   ghosts: () => req<GhostsResponse>('GET', 'ghosts'),
   routes: () => req<RoutesResponse>('GET', 'routes'),
+  livery: (livery: LiveryDto) => req<{ ok: true }>('POST', 'livery', { livery }),
   share: (image: string | null) => req<ShareResponse>('POST', 'share', { image }),
 };

@@ -20,6 +20,8 @@ export type TodayResponse = {
   best: BoardRow | null;
   sailors: number;
   top: BoardRow | null;
+  /** Kept on the server because Reddit gives every app version a fresh browser storage. */
+  profile: { livery: LiveryDto | null; finishedEver: boolean };
 };
 
 export type StartResponse = { ranked: true; token: string; attempts: { used: number; max: number } } | { ranked: false; reason: 'login' | 'attempts' | 'old-day' | 'course' };

@@ -30,6 +30,7 @@ const k = {
   runs: (date: string) => `run:${date}`,
   routes: (date: string) => `rt:${date}`,
   shared: (date: string, uid: string) => `shared:${date}:${uid}`,
+  livery: (uid: string) => `livery:${uid}`,
 };
 const kv = () => platform().kv;
 const expiry = (s: number) => new Date(platform().now() + s * 1000);
@@ -113,11 +114,18 @@ export async function finishRace(tokenId: string, logStr: string, livery: Livery
   const p = await par(course);
   const prev = await kv().zScore(k.lb(tok.date), tok.uid);
   const improved = prev === undefined || res.ticks < prev;
+  const medal = medalFor(res.ticks, p);
+  if (medal === 'harbourmaster') {
+    // Beat the Harbourmaster: it shows on the sailor's flair in this subreddit.
+    await platform()
+      .reddit.setUserFlair(tok.name, `🥇 Harbourmaster · Day ${dayNumber(tok.date)}`)
+      .catch((e) => console.warn('flair failed:', String(e).slice(0, 160)));
+  }
   if (improved) await storeRun(tok.date, tok.uid, { name: tok.name, ticks: res.ticks, log: logStr, livery: cleanLivery(livery) }, res.route);
   // Remember the day of the first ever finish: the warm-up bonus lasts that whole day.
   await kv().set(k.finished(tok.uid), tok.date, { nx: true });
   const [best, sailors, att] = await Promise.all([myBest(tok.date, tok.uid, p), kv().zCard(k.lb(tok.date)), attempts(tok.date, tok.uid)]);
-  return { ticks: res.ticks, medal: medalFor(res.ticks, p), par: p, improved, best: best!, sailors, attempts: att };
+  return { ticks: res.ticks, medal, par: p, improved, best: best!, sailors, attempts: att };
 }
 
 /** Saves a verified run as the sailor's best for the day. */
@@ -126,6 +134,20 @@ export async function storeRun(date: string, uid: string, run: Run, route: Array
   await kv().hSet(k.runs(date), { [uid]: JSON.stringify(run) });
   await kv().hSet(k.routes(date), { [uid]: JSON.stringify(route) });
   for (const key of [k.lb(date), k.runs(date), k.routes(date)]) await kv().expire(key, KEEP_S * 2);
+}
+
+export async function profile(uid: string | undefined): Promise<{ livery: LiveryDto | null; finishedEver: boolean }> {
+  if (!uid) return { livery: null, finishedEver: false };
+  const [l, fin] = await Promise.all([kv().get(k.livery(uid)), kv().get(k.finished(uid))]);
+  return { livery: l ? cleanLivery(JSON.parse(l) as LiveryDto) : null, finishedEver: !!fin };
+}
+
+export async function saveLivery(l: LiveryDto | null): Promise<void> {
+  const uid = platform().ctx().userId;
+  const clean = cleanLivery(l);
+  if (!uid) throw new ApiErr('login', 'Log in to Reddit to save your boat.', 401);
+  if (!clean) throw new ApiErr('bad-request', 'That paint job could not be read.');
+  await kv().set(k.livery(uid), JSON.stringify(clean));
 }
 
 function cleanLivery(l: LiveryDto | null): LiveryDto | null {
