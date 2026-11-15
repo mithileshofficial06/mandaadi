@@ -1,4 +1,5 @@
-﻿import { describe, expect, it } from 'vitest';
+﻿import { raceTicks } from '../../src/shared/core/boat';
+import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
 import { NO_GO, initialState, polar, step } from '../../src/shared/core/boat';
 import { GUN_TICK, TICK_HZ } from '../../src/shared/core/fixed';
@@ -71,7 +72,7 @@ describe('race', () => {
         expect(state.phase, `${course.id} side ${firstSide}`).toBe('finished');
         const secs = (state.finishTick - GUN_TICK) / TICK_HZ;
         expect(secs).toBeGreaterThan(45);
-        expect(secs).toBeLessThan(130); // TODO: tune the longest courses towards 50-80 s with the solver
+        expect(secs).toBeLessThan(100); // pars are 64-85 s since the speed tune
         expect(state.tacks).toBeGreaterThan(0);
       }
     }
@@ -83,7 +84,7 @@ describe('race', () => {
     expect(decoded).toEqual(log);
     const r = simulate(SANDBAR_SPRINT, decoded!);
     expect(r.finished).toBe(true);
-    expect(r.ticks).toBe(state.finishTick - GUN_TICK + state.penalty);
+    expect(r.ticks).toBe(raceTicks(state));
     expect(r.route).toHaveLength(32);
     expect(encodeInputs(log).length).toBeLessThan(1400);
   });
@@ -147,7 +148,7 @@ describe('skills', () => {
     const { log } = pilotLog();
     const plain = simulate(SANDBAR_SPRINT, log);
     const route = plain.route.map(([x, y]) => ({ x: x / 10, y: y / 10 }));
-    const withShoal = { ...SANDBAR_SPRINT, shoals: [route[12]!] };
+    const withShoal = { ...SANDBAR_SPRINT, shoals: [...(SANDBAR_SPRINT.shoals ?? []), route[12]!] };
     const r = simulate(withShoal, log);
     expect(r.ticks).toBe(plain.ticks - 30);
   });

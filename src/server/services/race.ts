@@ -1,7 +1,7 @@
 // Daily race: attempts, server-verified times, leaderboard, ghosts, routes and sharing.
 // A time only counts if the server re-sails the player's input log and gets that exact time.
 import { BY_WEEKDAY } from '../../shared/content/courses';
-import type { Course } from '../../shared/core/course';
+import { type Course, PHYSICS_VERSION } from '../../shared/core/course';
 import { TICK_HZ } from '../../shared/core/fixed';
 import { decodeInputs } from '../../shared/core/inputs';
 import { type Medal, MEDAL_NAME, medalFor, parTicks } from '../../shared/core/par';
@@ -16,13 +16,13 @@ const KEEP_S = 4 * 86_400;
 const TOKEN_S = 30 * 60;
 const MAX_LOG = 40_000;
 
-export type Run = { name: string; ticks: number; log: string; livery: LiveryDto | null };
+export type Run = { name: string; ticks: number; log: string; livery: LiveryDto | null; v?: number };
 type Token = { uid: string; name: string; date: string; t: number };
 
 const k = {
   post: (postId: string) => `post:${postId}`,
   posted: (date: string) => `posted:${date}`,
-  par: (courseId: string) => `par:${courseId}`,
+  par: (courseId: string) => `par:v${PHYSICS_VERSION}:${courseId}`,
   att: (date: string, uid: string) => `att:${date}:${uid}`,
   finished: (uid: string) => `fin:${uid}`,
   tok: (t: string) => `tok:${t}`,
@@ -131,7 +131,7 @@ export async function finishRace(tokenId: string, logStr: string, livery: Livery
 /** Saves a verified run as the sailor's best for the day. */
 export async function storeRun(date: string, uid: string, run: Run, route: Array<[number, number]>): Promise<void> {
   await kv().zAdd(k.lb(date), { member: uid, score: run.ticks });
-  await kv().hSet(k.runs(date), { [uid]: JSON.stringify(run) });
+  await kv().hSet(k.runs(date), { [uid]: JSON.stringify({ ...run, v: PHYSICS_VERSION }) });
   await kv().hSet(k.routes(date), { [uid]: JSON.stringify(route) });
   for (const key of [k.lb(date), k.runs(date), k.routes(date)]) await kv().expire(key, KEEP_S * 2);
 }
@@ -183,6 +183,7 @@ export async function ghosts(date: string, uid: string | undefined): Promise<Gho
     const r = runs[i];
     if (!r) return;
     const run = JSON.parse(r) as Run;
+    if (run.v !== PHYSICS_VERSION) return;
     out.push({ name: x.kind === 'you' ? 'Your best' : `u/${run.name}`, log: run.log, ticks: run.ticks, livery: run.livery, kind: x.kind });
   });
   return out.slice(0, 4);

@@ -56,7 +56,9 @@ export const SHOAL_BONUS = 30;
 
 export const COURSE_SIZE_M = 400;
 /** Max boat speed (m/s x10) by wind strength. */
-export const VMAX_10 = [50, 70, 90] as const;
+export const VMAX_10 = [62, 86, 108] as const;
+/** Bump when boat physics change: ghosts only replay runs sailed on the same physics. */
+export const PHYSICS_VERSION = 2;
 /** A mark counts as rounded after sweeping this far around it while inside ROUND_RADIUS. */
 export const ROUND_SWEEP = 2276; // 200 degrees
 export const ROUND_RADIUS_M = 70;

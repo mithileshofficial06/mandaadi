@@ -129,8 +129,8 @@ export const TRIANGLE: Course = {
   wind: { from: deg(0), strength: 1, shiftAmp: 0, shiftPeriod: 0 },
   start: LINE,
   marks: [
-    { x: 196, y: 214, round: 'port' },
-    { x: 296, y: 150, round: 'port' },
+    { x: 198, y: 196, round: 'port' },
+    { x: 276, y: 140, round: 'port' },
   ],
   finish: LINE,
   islands: [{ parts: [{ x: 110, y: 160, r: 16 }], palms: 3 }],
