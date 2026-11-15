@@ -4,9 +4,11 @@ import { render } from 'preact';
 import { useState } from 'preact/hooks';
 import { COURSES, SANDBAR_SPRINT } from '../../shared/content/courses';
 import type { Course } from '../../shared/core/course';
-import { api } from '../app/api';
+import { ApiFailure, api } from '../app/api';
+import { type InputLog, decodeInputs, encodeInputs } from '../../shared/core/inputs';
+import { MEDAL_NAME } from '../../shared/core/par';
 import { sfx } from '../app/audio';
-import { Race } from './game';
+import { Race, type Rival } from './game';
 import { LIVERIES, type Livery } from '../three/boatModel';
 import { Hud } from './Hud';
 import { fmtTicks as fmt, hud } from './hudState';
@@ -53,9 +55,82 @@ const params = new URLSearchParams(location.search);
 let race: Race | null = null;
 let course: Course = SANDBAR_SPRINT;
 let day = 1;
-let lastLog: import('../../shared/core/inputs').InputLog | null = null;
+let lastLog: InputLog | null = null;
+/** The server's ticket for the race in progress (null = practice). */
+let token: string | null = null;
+let raceGen = 0;
+let rivals: Rival[] = [];
+const ordinal = (n: number) => `${n}${n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th'}`;
+const errText = (e: unknown, fallback: string) => (e instanceof ApiFailure ? e.message : fallback);
+const isToday = () => !!hud.daily.value && course.id === hud.daily.value.course.id;
 
-let replayLog: import('../../shared/core/inputs').InputLog | null = null;
+async function loadRivals(): Promise<void> {
+  try {
+    const g = await api.ghosts();
+    rivals = g.ghosts.flatMap((x) => {
+      const log = decodeInputs(x.log);
+      return log ? [{ name: x.name, log, livery: x.livery ? { ...LIVERIES[0]!, ...x.livery } : null }] : [];
+    });
+  } catch {
+    rivals = [];
+  }
+}
+
+const PRACTICE_WHY = { login: 'Log in to Reddit to get on the board', attempts: 'No attempts left today', 'old-day': 'This race day has closed', course: 'Practice course' } as const;
+
+/** Ask the server for a race ticket: with one, the finish goes on the board. */
+async function claim(): Promise<void> {
+  const gen = raceGen;
+  token = null;
+  const d = hud.daily.value;
+  if (!d) {
+    hud.ranked.value = { kind: 'practice', why: 'Offline practice' };
+    return;
+  }
+  if (!isToday()) {
+    hud.ranked.value = { kind: 'practice', why: PRACTICE_WHY.course };
+    return;
+  }
+  hud.ranked.value = { kind: 'pending' };
+  try {
+    const r = await api.start(d.date, d.course.id);
+    if (gen !== raceGen) return;
+    if (r.ranked) {
+      token = r.token;
+      hud.ranked.value = { kind: 'ranked' };
+      hud.daily.value = { ...d, attempts: r.attempts };
+    } else hud.ranked.value = { kind: 'practice', why: PRACTICE_WHY[r.reason] };
+  } catch {
+    if (gen === raceGen) hud.ranked.value = { kind: 'practice', why: 'Could not reach the harbour' };
+  }
+}
+
+/** Send a finished run to the server, which re-sails it and returns the official result. */
+async function submit(log: InputLog): Promise<void> {
+  const t = token;
+  token = null;
+  if (t) {
+    hud.verified.value = 'checking';
+    try {
+      const r = await api.finish(t, encodeInputs(log), myLivery());
+      hud.verified.value = r;
+      const d = hud.daily.value;
+      if (d) hud.daily.value = { ...d, attempts: r.attempts, best: r.best, sailors: r.sailors };
+      void loadRivals();
+    } catch (e) {
+      hud.verified.value = { error: errText(e, 'Could not check your time with the harbour.') };
+    }
+  }
+  if (isToday()) {
+    try {
+      hud.board.value = await api.board();
+    } catch {
+      /* the fleet list stays */
+    }
+  }
+}
+
+let replayLog: InputLog | null = null;
 
 function newRace(): Race {
   if (race) {
@@ -68,10 +143,13 @@ function newRace(): Race {
     canvas = fresh;
   }
   const done = racesDone();
-  const r = new Race(canvas, course, { coach: done < 2, laylines: done < 3, reducedMotion: reduced, livery: myLivery(), ...(replayLog ? { replay: replayLog } : {}) });
+  raceGen++;
+  token = null;
+  const r = new Race(canvas, course, { coach: done < 2, laylines: done < 3, reducedMotion: reduced, livery: myLivery(), ...(replayLog ? { replay: replayLog } : !params.get('autopilot') && isToday() && rivals.length ? { rivals } : {}) });
   r.setOnFinish((log) => {
     if (!replayLog) store.set(RACES_KEY, String(racesDone() + 1));
     lastLog = log.slice();
+    if (!replayLog) void submit(log);
   });
   return r;
 }
@@ -85,6 +163,9 @@ function resetHud(): void {
   hud.marker.value = null;
   hud.paused.value = false;
   hud.replay.value = false;
+  hud.verified.value = null;
+  hud.board.value = null;
+  hud.shared.value = 'idle';
 }
 
 function App() {
@@ -96,6 +177,7 @@ function App() {
     store.set(GUIDE_KEY, '1');
     setGuide('closed');
     race?.go();
+    void claim();
   };
   return (
     <Hud
@@ -119,11 +201,28 @@ function App() {
       onPostcard={() => {
         const r = hud.result.value;
         if (!race || !r) return;
-        const url = race.postcard([`Day ${day} · ${course.name}`, fmt(r.ticks), r.place]);
+        const url = race.postcard([`Day ${day} · ${course.name}`, fmt(r.ticks), placeLine(r.place)]);
         const a = document.createElement('a');
         a.href = url;
         a.download = `mandaadi-${course.id}.jpg`;
         a.click();
+      }}
+      onShare={async () => {
+        const r = hud.result.value;
+        if (!race || !r || hud.shared.value === 'sending') return;
+        hud.shared.value = 'sending';
+        let img: string | null;
+        try {
+          img = race.postcard([`Day ${day} · ${course.name}`, fmt(r.ticks), placeLine(r.place)]);
+        } catch {
+          img = null;
+        }
+        try {
+          await api.share(img);
+          hud.shared.value = 'done';
+        } catch (e) {
+          hud.shared.value = { error: errText(e, 'Could not share your race.') };
+        }
       }}
       courses={COURSES}
       livery={myLivery()}
@@ -169,10 +268,18 @@ function App() {
   );
 }
 
+/** The postcard's place line: the verified board place when there is one. */
+function placeLine(fleetPlace: string): string {
+  const v = hud.verified.value;
+  if (v && v !== 'checking' && !('error' in v)) return `${MEDAL_NAME[v.medal]} · ${ordinal(v.best.rank)} of ${v.sailors}`;
+  return fleetPlace;
+}
+
 async function boot(): Promise<void> {
   bootUi()?.to(30);
   try {
-    const t = await api.today();
+    const [t] = await Promise.all([api.today(), loadRivals()]);
+    hud.daily.value = t;
     course = COURSES.find((c) => c.id === params.get('course')) ?? t.course;
     day = t.day;
   } catch {

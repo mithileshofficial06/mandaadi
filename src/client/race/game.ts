@@ -16,6 +16,7 @@ import type { Course } from '../../shared/core/course';
 import { GUN_TICK, Q10, TICK_HZ, UM_PER_M } from '../../shared/core/fixed';
 import { InputPlayer, type InputLog, InputRecorder } from '../../shared/core/inputs';
 import { Pilot } from '../../shared/core/pilot';
+import { HARBOURMASTER } from '../../shared/core/par';
 import { ANG, deg, signedA } from '../../shared/core/trig';
 import type { Wake } from '../three/effects';
 import { puffCentre } from '../../shared/core/wind';
@@ -49,7 +50,9 @@ function sunFor(windFromRad: number, elDeg = 52, azOff = 1.25): Vector3 {
 }
 
 type Snap = { x: number; y: number; h: number };
-type Bot = { name: string; s: BoatState; prev: Snap; pilot: Pilot; model: BoatModel; wake: Wake };
+type Bot = { name: string; s: BoatState; prev: Snap; pilot: Pilot; model: BoatModel; wake: Wake; player?: InputPlayer };
+/** A real redditor's verified run from today, sailed again as a ghost boat. */
+export type Rival = { name: string; log: InputLog; livery: Livery | null };
 /** Rival crews, named after fishing villages on the Ramanathapuram coast. They are bots, and say so. */
 const VILLAGES = ['Pamban', 'Mandapam', 'Kilakarai', 'Thondi', 'Devipattinam', 'Erwadi', 'Valinokkam'];
 const ordinal = (n: number) => `${n}${n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th'}`;
@@ -86,7 +89,7 @@ const vibrate = (p: number | number[]) => {
   }
 };
 
-export type RaceOpts = { coach: boolean; laylines: boolean; reducedMotion: boolean; livery?: Livery; replay?: InputLog };
+export type RaceOpts = { coach: boolean; laylines: boolean; reducedMotion: boolean; livery?: Livery; replay?: InputLog; rivals?: Rival[] };
 
 export class Race {
   private renderer: WebGLRenderer;
@@ -235,7 +238,16 @@ export class Race {
       const ga = course.start.a;
       const gb = course.start.b;
       const len = Math.hypot(gb.x - ga.x, gb.y - ga.y) || 1;
-      VILLAGES.forEach((name, i) => {
+      // Real players' ghosts first: they start exactly where they did, so they re-sail their exact race.
+      (opts.rivals ?? []).forEach((r, i) => {
+        const s = initialState(course);
+        const model = createBoat({ ...LIVERIES[(i + 1) % LIVERIES.length]!, ...(r.livery ?? {}) }, { ghost: true });
+        const wake = createWake({ life: 8, opacity: 0.45 });
+        this.scene.add(model.root, wake.mesh);
+        this.bots.push({ name: r.name, s, prev: { x: s.x, y: s.y, h: s.h }, pilot: new Pilot(course), model, wake, player: new InputPlayer(r.log) });
+      });
+      // Village bots fill the rest of the fleet.
+      VILLAGES.slice(0, Math.max(3, VILLAGES.length - (opts.rivals?.length ?? 0))).forEach((name, i) => {
         const s = initialState(course);
         const off = (i % 2 ? 1 : -1) * (9 + Math.floor(i / 2) * 7);
         s.x += Math.round(((off * (gb.x - ga.x)) / len) * UM_PER_M);
@@ -247,7 +259,7 @@ export class Race {
         this.bots.push({ name, s, prev: { x: s.x, y: s.y, h: s.h }, pilot, model, wake });
       });
     }
-    this.pilot = new Pilot(course, { up: Math.round((50 * ANG) / 360), down: Math.round((150 * ANG) / 360), overstand: 12, firstSide: -1 });
+    this.pilot = new Pilot(course, HARBOURMASTER);
 
     if (new URLSearchParams(location.search).get('autopilot')) this.auto = new Pilot(course);
     if (opts.replay) {
@@ -592,7 +604,7 @@ export class Race {
       b.prev.x = b.s.x;
       b.prev.y = b.s.y;
       b.prev.h = b.s.h;
-      if (b.s.phase === 'prestart' || b.s.phase === 'racing') step(b.s, this.course, b.pilot.next(b.s));
+      if (b.s.phase === 'prestart' || b.s.phase === 'racing') step(b.s, this.course, b.player ? b.player.next(b.s.tick) : b.pilot.next(b.s));
     }
   }
 

@@ -24,7 +24,12 @@ while (Date.now() - t0 < 140000) {
 await page.waitForTimeout(800);
 await page.screenshot({ path: `${out}/finish.png` });
 const time = await page.locator('.finish__time').getAttribute('aria-label').catch(() => null);
-console.log('finish time', time, 'errors', errors.length ? errors : 'none');
+// The server re-sails the run and returns the official verdict and today's board.
+await page.waitForFunction(() => { const v = document.querySelector('.verdict'); return v && !/Checking/.test(v.textContent ?? ''); }, null, { timeout: 15000 }).catch(() => null);
+const verdict = await page.locator('.verdict').first().textContent().catch(() => null);
+const board = await page.locator('.fleet--board li').count();
+await page.screenshot({ path: `${out}/finish.png` });
+console.log('finish time', time, '| verdict', verdict, '| board rows', board, '| errors', errors.length ? errors : 'none');
 await browser.close();
 if (!time) process.exit(1);
 

@@ -6,6 +6,71 @@ import type { Course } from '../../shared/core/course';
 import { sfx } from '../app/audio';
 import { type Route, drawChart, sideOf } from './chart';
 import { Guide } from './Guide';
+import { MEDAL_NAME, type Medal } from '../../shared/core/par';
+
+const MEDAL_ICON: Record<Medal, string> = { harbourmaster: '🥇', navigator: '🥈', deckhand: '🥉' };
+const ordinal = (n: number) => `${n}${n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th'}`;
+
+/** Start card: today's board status, attempts and line honours. */
+function DailyStatus(course: Course) {
+  const d = hud.daily.value;
+  if (!d) return null;
+  const today = d.course.id === course.id;
+  const left = Math.max(0, d.attempts.max - d.attempts.used);
+  let line: string;
+  if (!today) line = 'Practice course: not on the board.';
+  else if (!d.live) line = "This race day has closed. Practise it, or find today's post.";
+  else if (!d.user.loggedIn) line = 'Log in to Reddit to get on the board. You can still sail.';
+  else if (left === 0) line = 'No attempts left today. Practise as much as you like.';
+  else line = `${left} of ${d.attempts.max} attempts left today${d.attempts.max > 3 && !d.best ? ' (one bonus warm-up for your first race)' : ''}.`;
+  return (
+    <div class="daily">
+      <p class="daily__line">{line}</p>
+      <p class="daily__meta">
+        {d.best ? (
+          <span>
+            Your best <b>{fmtTicks(d.best.ticks)}</b> · {ordinal(d.best.rank)} of {d.sailors} {MEDAL_ICON[d.best.medal]}
+          </span>
+        ) : d.top ? (
+          <span>
+            Line honours <b>u/{d.top.name}</b> {fmtTicks(d.top.ticks)} · {d.sailors} {d.sailors === 1 ? 'sailor' : 'sailors'}
+          </span>
+        ) : today && d.live ? (
+          <span>No one has finished yet. Be first on the board.</span>
+        ) : null}
+        {today && d.par > 0 && <span> · Harbourmaster {fmtTicks(d.par)}</span>}
+      </p>
+    </div>
+  );
+}
+
+const canRank = (course: Course) => {
+  const d = hud.daily.value;
+  return !!d && d.course.id === course.id && d.live && d.user.loggedIn && d.attempts.used < d.attempts.max;
+};
+
+/** Finish card: the server's verdict on this run. */
+function Verdict() {
+  const v = hud.verified.value;
+  const r = hud.ranked.value;
+  if (v === 'checking') return <p class="verdict">Checking your time with the harbour…</p>;
+  if (v && 'error' in v) return <p class="verdict is-bad">{v.error}</p>;
+  if (v) {
+    return (
+      <div class={`verdict verdict--${v.medal}`}>
+        <span class="verdict__medal" aria-hidden="true">
+          {MEDAL_ICON[v.medal]}
+        </span>
+        <span>
+          <b>{MEDAL_NAME[v.medal]}</b> · {v.improved ? `${ordinal(v.best.rank)} of ${v.sailors} today` : `Your best stays ${fmtTicks(v.best.ticks)} (${ordinal(v.best.rank)})`}
+          <small>{v.attempts.used >= v.attempts.max ? 'No attempts left today' : `${v.attempts.max - v.attempts.used} attempts left`}</small>
+        </span>
+      </div>
+    );
+  }
+  if (r.kind === 'practice') return <p class="verdict is-practice">Practice run{r.why ? ` · ${r.why}` : ''}</p>;
+  return null;
+}
 import type { Livery } from '../three/boatModel';
 
 const HULLS = ['#1f5fa8', '#1d7a5c', '#b8322a', '#e0a526', '#5b3f8f', '#2a2a2a'];
@@ -155,6 +220,7 @@ export type HudProps = {
   onPick: (id: string) => void;
   onReplay: () => void;
   onPostcard: () => void;
+  onShare: () => void;
   livery: Livery;
   onLivery: (l: Livery) => void;
   onAgain: () => void;
@@ -234,12 +300,13 @@ export function Hud(props: HudProps) {
               ))}
             </select>
           </label>
+          {DailyStatus(course)}
           <div class="startcard__row">
             <button class="btn btn--ghost" onClick={props.onHelp}>
               How to sail
             </button>
             <button class="btn btn--primary btn--grow" onClick={props.onStart}>
-              Start the race
+              {canRank(course) || !hud.daily.value ? 'Start the race' : 'Start practice'}
             </button>
           </div>
         </section>
@@ -401,9 +468,15 @@ function Finish(props: HudProps) {
   const mine = sideOf(props.course, res.route);
   const theirs = sideOf(props.course, res.ghostRoute);
   const sideName = (s: number) => (s < 0 ? 'left' : s > 0 ? 'right' : 'up the middle');
+  const board = hud.board.value;
+  const v = hud.verified.value;
+  const sh = hud.shared.value;
+  const canShare = !!v && v !== 'checking' && !('error' in v);
+  const d = hud.daily.value;
+  const left = d ? d.attempts.max - d.attempts.used : 0;
   return (
     <div class="finish" role="dialog" aria-labelledby="finish-time">
-      <p class="finish__label">Finished {res.place}</p>
+      <p class="finish__label">Finished {res.place} in the fleet</p>
       <p id="finish-time" class="finish__time" aria-label={fmtTicks(res.ticks)}>
         <CountUp ticks={res.ticks} />
       </p>
@@ -414,6 +487,7 @@ function Finish(props: HudProps) {
       ) : (
         <p class="finish__vs is-win">You beat the Harbourmaster home</p>
       )}
+      {Verdict()}
       <div class="finish__chart">
         <CourseChart
           course={props.course}
@@ -428,6 +502,28 @@ function Finish(props: HudProps) {
           <span class="lg lg--hm">Harbourmaster went {sideName(theirs)}</span>
         </div>
       </div>
+      {board && board.rows.length > 0 ? (
+        <ol class="fleet fleet--board" aria-label="Today's board">
+          {board.rows.slice(0, 5).map((b) => (
+            <li class={b.me ? 'is-me' : ''}>
+              <span>{b.rank}</span>
+              <b>
+                {MEDAL_ICON[b.medal]} u/{b.name}
+              </b>
+              <em>{fmtTicks(b.ticks)}</em>
+            </li>
+          ))}
+          {board.me && board.me.rank > 5 && (
+            <li class="is-me">
+              <span>{board.me.rank}</span>
+              <b>
+                {MEDAL_ICON[board.me.medal]} You
+              </b>
+              <em>{fmtTicks(board.me.ticks)}</em>
+            </li>
+          )}
+        </ol>
+      ) : (
       <ol class="fleet">
         {res.fleet.slice(0, 5).map((f, i) => (
           <li class={f.me ? 'is-me' : ''}>
@@ -437,6 +533,7 @@ function Finish(props: HudProps) {
           </li>
         ))}
       </ol>
+      )}
       <dl class="finish__stats">
         <div>
           <dt>Tacks</dt>
@@ -459,8 +556,15 @@ function Finish(props: HudProps) {
           Save postcard
         </button>
       </div>
+      {canShare && (
+        <button class="btn btn--share btn--big" disabled={sh === 'sending' || sh === 'done'} onClick={props.onShare}>
+          {sh === 'done' ? 'Shared to the comments ✓' : sh === 'sending' ? 'Sharing…' : 'Share my race to the comments'}
+        </button>
+      )}
+      {typeof sh === 'object' && <p class="verdict is-bad">{sh.error}</p>}
       <button class="btn btn--primary btn--big" onClick={props.onAgain}>
-        Race again{mine !== 0 ? `: try the ${mine < 0 ? 'right' : 'left'}` : ''}
+        {canRank(props.course) ? `Race again (${left} left)` : 'Practise again'}
+        {mine !== 0 ? `: try the ${mine < 0 ? 'right' : 'left'}` : ''}
       </button>
     </div>
   );

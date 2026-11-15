@@ -1,4 +1,5 @@
 import { signal } from '@preact/signals';
+import type { BoardResponse, FinishResponse, TodayResponse } from '../../shared/api/types';
 
 export type RouteXY = Array<[number, number]>;
 export type RaceResult = {
@@ -49,6 +50,14 @@ export const hud = {
   camMode: signal<'drive' | 'chase' | 'low' | 'top'>('drive'),
   marker: signal<{ x: number; y: number; edge: boolean; angle: number; label: string; dist: number } | null>(null),
   error: signal<string | null>(null),
+  /** Today's race from the server (null offline). */
+  daily: signal<TodayResponse | null>(null),
+  /** This race: on the board, or practice (with why). */
+  ranked: signal<{ kind: 'pending' | 'ranked' | 'practice'; why?: string }>({ kind: 'practice' }),
+  /** The server's check of the finished run. */
+  verified: signal<FinishResponse | { error: string } | 'checking' | null>(null),
+  board: signal<BoardResponse | null>(null),
+  shared: signal<'idle' | 'sending' | 'done' | { error: string }>('idle'),
 };
 
 export function fmtTicks(ticks: number): string {

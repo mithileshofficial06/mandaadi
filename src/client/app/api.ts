@@ -1,4 +1,4 @@
-import type { ApiError, TodayResponse } from '../../shared/api/types';
+import type { ApiError, BoardResponse, FinishResponse, GhostsResponse, LiveryDto, RoutesResponse, ShareResponse, StartResponse, TodayResponse } from '../../shared/api/types';
 
 export class ApiFailure extends Error {
   constructor(
@@ -37,4 +37,10 @@ async function req<T>(method: 'GET' | 'POST', path: string, body?: unknown): Pro
 
 export const api = {
   today: () => req<TodayResponse>('GET', 'today'),
+  start: (date: string, courseId: string) => req<StartResponse>('POST', 'race/start', { date, courseId }),
+  finish: (token: string, log: string, livery: LiveryDto) => req<FinishResponse>('POST', 'race/finish', { token, log, livery }),
+  board: () => req<BoardResponse>('GET', 'board'),
+  ghosts: () => req<GhostsResponse>('GET', 'ghosts'),
+  routes: () => req<RoutesResponse>('GET', 'routes'),
+  share: (image: string | null) => req<ShareResponse>('POST', 'share', { image }),
 };

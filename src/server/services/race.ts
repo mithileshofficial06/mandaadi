@@ -62,8 +62,8 @@ export async function par(course: Course): Promise<number> {
 export async function attempts(date: string, uid: string | undefined): Promise<{ used: number; max: number }> {
   if (!uid) return { used: 0, max: MAX_ATTEMPTS };
   const [used, fin] = await Promise.all([kv().get(k.att(date, uid)), kv().get(k.finished(uid))]);
-  // First-run mode: a sailor who has never finished gets one extra warm-up attempt.
-  return { used: Number(used ?? 0), max: MAX_ATTEMPTS + (fin ? 0 : 1) };
+  // First-run mode: one extra warm-up attempt until the end of the day of your first finish.
+  return { used: Number(used ?? 0), max: MAX_ATTEMPTS + (!fin || fin === date ? 1 : 0) };
 }
 
 export async function startRace(date: string, courseId: string) {
@@ -120,7 +120,8 @@ export async function finishRace(tokenId: string, logStr: string, livery: Livery
     await kv().hSet(k.routes(tok.date), { [tok.uid]: JSON.stringify(res.route) });
     for (const key of [k.lb(tok.date), k.runs(tok.date), k.routes(tok.date)]) await kv().expire(key, KEEP_S * 2);
   }
-  await kv().set(k.finished(tok.uid), '1');
+  // Remember the day of the first ever finish: the warm-up bonus lasts that whole day.
+  await kv().set(k.finished(tok.uid), tok.date, { nx: true });
   const [best, sailors, att] = await Promise.all([myBest(tok.date, tok.uid, p), kv().zCard(k.lb(tok.date)), attempts(tok.date, tok.uid)]);
   return { ticks: res.ticks, medal: medalFor(res.ticks, p), par: p, improved, best: best!, sailors, attempts: att };
 }
