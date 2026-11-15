@@ -115,6 +115,46 @@ export const sfx = {
     horn(ctx, master, t, 0.5, 0.32);
     horn(ctx, master, t + 0.7, 0.9, 0.32);
   },
+  /** Festival drums: a thavil (deep strokes) and a parai (sharp slaps), for `seconds`. */
+  drums(seconds: number): void {
+    if (!ctx || !master) return;
+    const t0 = ctx.currentTime + 0.05;
+    const beat = 60 / 168 / 2; // eighth notes at 168 bpm
+    // parai: ta-ka ta-ka ta-ka TUM, thavil on the downbeats
+    const parai = [1, 0.6, 0.9, 0.6, 1, 0.6, 0.9, 0, 1, 0.7, 1, 0.7, 1, 1, 1.2, 0];
+    const thavil = [1, 0, 0, 0.6, 0, 0, 1, 0, 1, 0, 0, 0.6, 0, 0.8, 1, 0];
+    const n = Math.floor(seconds / beat);
+    for (let i = 0; i < n; i++) {
+      const t = t0 + i * beat;
+      const p = parai[i % 16]!;
+      const th = thavil[i % 16]!;
+      if (p) {
+        burst(ctx, master, t, 0.07, 2100, 3, 0.16 * p);
+        thump(ctx, master, t, 210, 0.08 * p);
+      }
+      if (th) thump(ctx, master, t, 70, 0.32 * th);
+    }
+  },
+  /** A crowd cheering from the beach. */
+  cheer(): void {
+    if (!ctx || !master) return;
+    const t = ctx.currentTime;
+    burst(ctx, master, t, 2.8, 1100, 0.5, 0.14, 0.5);
+    burst(ctx, master, t + 0.2, 2.4, 2400, 0.8, 0.07, 0.4);
+    for (let i = 0; i < 3; i++) {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      const s = t + 0.3 + i * 0.5;
+      o.frequency.setValueAtTime(1800 + i * 200, s);
+      o.frequency.linearRampToValueAtTime(2600 + i * 150, s + 0.25);
+      g.gain.setValueAtTime(0, s);
+      g.gain.linearRampToValueAtTime(0.05, s + 0.03);
+      g.gain.linearRampToValueAtTime(0, s + 0.35);
+      o.connect(g).connect(master);
+      o.start(s);
+      o.stop(s + 0.4);
+    }
+  },
   hit(): void {
     if (!ctx || !master) return;
     const t = ctx.currentTime;

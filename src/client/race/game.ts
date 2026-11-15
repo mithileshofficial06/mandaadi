@@ -34,6 +34,7 @@ import { type Spray, createSpray } from '../three/spray';
 import { landOf } from '../three/world';
 import { fmtTicks, hud } from './hudState';
 import { Minimap } from './minimap';
+import { type Festival, createFestival } from '../three/festival';
 import { type Shoals, createShoals } from '../three/shoals';
 
 const RAD = (2 * Math.PI) / ANG;
@@ -116,6 +117,7 @@ export class Race {
   private birds: Birds;
   private ring: WindRing;
   private bots: Bot[] = [];
+  private festival: Festival;
   private place = 0;
   private mini: Minimap | null = null;
   private shoals: Shoals | null = null;
@@ -179,6 +181,8 @@ export class Race {
       this.shoals = createShoals(course.shoals);
       this.scene.add(this.shoals.group);
     }
+    this.festival = createFestival(course);
+    this.scene.add(this.festival.group);
     this.spray = createSpray();
     this.scene.add(this.spray.points);
     this.scene.add(this.water.mesh);
@@ -324,6 +328,7 @@ export class Race {
     this.rig.setOrbit(false);
     if (this.opts.coach) this.setPrompt('Drag left or right to steer', 1);
     sfx.pip();
+    sfx.drums(3);
     this.lastCountdown = 3;
     this.loop(this.last);
   }
@@ -586,6 +591,8 @@ export class Race {
 
   private finish(s: BoatState): void {
     sfx.finish();
+    sfx.cheer();
+    sfx.drums(4);
     this.spray.emit(30, s.x / UM_PER_M, s.y / UM_PER_M, s.h * RAD, (s.v * TICK_HZ) / UM_PER_M, 1.3);
     vibrate([60, 80, 120]);
     const ticks = raceTicks(s);
@@ -749,6 +756,7 @@ export class Race {
     this.water.update(t);
     this.land.update(t);
     this.birds.update(t);
+    this.festival.update(t);
     this.shoals?.update(t);
     this.marks.update(t);
 

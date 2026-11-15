@@ -6,6 +6,7 @@ import {
   BufferGeometry,
   CanvasTexture,
   BoxGeometry,
+  CapsuleGeometry,
   CatmullRomCurve3,
   ConeGeometry,
   Color,
@@ -277,6 +278,24 @@ function fishingVillage(ground: Ground): Mesh {
     hut.rotation.y = (r() - 0.5) * 0.5;
     g.add(hut);
   }
+  // The festival crowd along the beach: people in bright clothes, a few clusters.
+  const cloth = ['#c8372d', '#f1c232', '#1f5fa8', '#e86a2b', '#f4f1ea', '#1d7a5c', '#8e3a8f', '#e9a3b8'];
+  const skinM = lambert('#6e4429');
+  const clothM = cloth.map(lambert);
+  const body = new CapsuleGeometry(0.24, 0.85, 2, 6);
+  const head = new SphereGeometry(0.17, 6, 5);
+  for (let k = 0; k < 150; k++) {
+    const cluster = Math.floor(k / 30);
+    const y = 30 + cluster * 45 + (r() - 0.5) * 26;
+    const x = mainlandX(y, 1.5 + r() * 5);
+    const h = ground.heightAt(x, y);
+    const p = new Mesh(body, clothM[k % clothM.length]!);
+    p.position.set(x, h + 0.65, -y);
+    const hd = new Mesh(head, skinM);
+    hd.position.set(x, h + 1.45, -y);
+    g.add(p, hd);
+  }
+
   // Boats on the beach, bows up the sand.
   const hulls = LIVERIES.map((l) => beachedHull(l));
   for (let k = 0; k < 5; k++) {
