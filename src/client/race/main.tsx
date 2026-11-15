@@ -10,6 +10,7 @@ import { Hud } from './Hud';
 import { hud } from './hudState';
 
 type BootUi = { to(p: number): void; done(): void };
+if (import.meta.env.DEV) (window as unknown as { __hud: typeof hud }).__hud = hud;
 const bootUi = (): BootUi | undefined => (window as unknown as { __boot?: BootUi }).__boot;
 
 const RACES_KEY = 'mandaadi.races';

@@ -123,11 +123,11 @@ export function createWake(opts: { life?: number; opacity?: number } = {}): Wake
         float across = abs(vUv.x - 0.5) * 2.0;           // 0 centre .. 1 edge
         float young = 1.0 - vAge;
         // turbulent foam in the centre when young, two edge lines (the wake's arms) as it ages
-        float centre = (1.0 - smoothstep(0.0, 0.7, across)) * pow(young, 2.2);
-        float arms = smoothstep(0.55, 0.85, across) * (1.0 - smoothstep(0.85, 1.0, across)) * pow(young, 1.3);
-        float tex = n(vec2(vUv.x * 9.0, vUv.y * 0.9)) * 0.55 + n(vec2(vUv.x * 23.0, vUv.y * 2.3 + uTime)) * 0.45;
-        float foam = centre * smoothstep(0.3, 0.75, tex + young * 0.25) + arms * smoothstep(0.35, 0.7, tex) * 0.8;
-        float track = (1.0 - smoothstep(0.0, 1.0, across)) * young * 0.12;
+        float centre = (1.0 - smoothstep(0.0, 0.55, across)) * pow(young, 3.0);
+        float arms = smoothstep(0.62, 0.86, across) * (1.0 - smoothstep(0.86, 1.0, across)) * pow(young, 1.6);
+        float tex = n(vec2(vUv.x * 11.0, vUv.y * 1.3)) * 0.5 + n(vec2(vUv.x * 29.0, vUv.y * 3.1 + uTime * 0.7)) * 0.5;
+        float foam = centre * smoothstep(0.42, 0.8, tex + young * 0.18) * 0.85 + arms * smoothstep(0.45, 0.75, tex) * 0.55;
+        float track = (1.0 - smoothstep(0.0, 1.0, across)) * young * young * 0.1;
         float a = (foam + track) * clamp(vSpeed * 1.3, 0.0, 1.0);
         gl_FragColor = vec4(0.96, 0.98, 1.0, a * uOpacity);
       }`,
@@ -147,7 +147,7 @@ export function createWake(opts: { life?: number; opacity?: number } = {}): Wake
         continue;
       }
       const a = Math.min(1, (time - p.t) / life);
-      const w = 0.7 + a * 7.5 * (0.4 + p.s);
+      const w = 0.45 + a * 4.6 * (0.3 + 0.7 * p.s);
       pos[o * 3] = p.x + p.nx * w;
       pos[o * 3 + 1] = 0.05;
       pos[o * 3 + 2] = -(p.y + p.ny * w);

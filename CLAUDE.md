@@ -29,3 +29,7 @@ Devvit Web 0.15.3, Node 24, Vite 8, TypeScript 6, Preact + Signals, three.js 0.1
 - `src/client/race`: game loop (`game.ts`), HUD (`Hud.tsx`, `hudState.ts`), entry `main.tsx`.
 - `src/client/three`: water shader, islands + palms + mainland, boat model, marks, effects (cone, wake), camera.
 - `src/client/app/audio.ts`: Web Audio synthesis. `src/client/input/steer.ts`: drag/keys/double-tap.
+
+## Gotchas
+- Preact 11 + @preact/signals 2.11 here: a CHILD component that reads `signal.value` does not re-render when the signal changes. Render HUD sections as plain functions called inside `Hud` (`{Marker()}`), not as `<Marker />`.
+- The harness exposes `window.__hud` (dev only) for debugging HUD state from Playwright.

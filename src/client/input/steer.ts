@@ -20,6 +20,10 @@ export class SteerInput {
   private downT = 0;
   private filter = new OneEuroFilter({ minCutoff: 2.2, beta: 0.02, dCutoff: 1 });
   private smooth = 0;
+  /** Two-finger pinch or mouse wheel: factor > 1 zooms out. */
+  onPinch: ((factor: number) => void) | null = null;
+  private pts = new Map<number, { x: number; y: number }>();
+  private pinchDist = 0;
   /** Called the first time the player steers. */
   onFirstSteer: (() => void) | null = null;
   private steered = false;
@@ -30,6 +34,7 @@ export class SteerInput {
     el.addEventListener('pointermove', this.move);
     el.addEventListener('pointerup', this.up);
     el.addEventListener('pointercancel', this.up);
+    el.addEventListener('wheel', this.wheel, { passive: false });
     window.addEventListener('keydown', this.key);
     window.addEventListener('keyup', this.key);
   }
@@ -39,11 +44,31 @@ export class SteerInput {
     this.el.removeEventListener('pointermove', this.move);
     this.el.removeEventListener('pointerup', this.up);
     this.el.removeEventListener('pointercancel', this.up);
+    this.el.removeEventListener('wheel', this.wheel);
     window.removeEventListener('keydown', this.key);
     window.removeEventListener('keyup', this.key);
   }
 
+  private wheel = (e: WheelEvent) => {
+    e.preventDefault();
+    this.onPinch?.(e.deltaY > 0 ? 1.08 : 1 / 1.08);
+  };
+
+  private spread(): number {
+    const [a, b] = [...this.pts.values()];
+    return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
+  }
+
   private down = (e: PointerEvent) => {
+    this.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (this.pts.size >= 2) {
+      // Second finger: this is a pinch, not steering.
+      this.pointerId = null;
+      this.anchor = null;
+      this.raw = 0;
+      this.pinchDist = this.spread();
+      return;
+    }
     if (!this.enabled || this.pointerId !== null) return;
     this.pointerId = e.pointerId;
     this.anchor = e.clientX;
@@ -58,6 +83,13 @@ export class SteerInput {
   };
 
   private move = (e: PointerEvent) => {
+    if (this.pts.has(e.pointerId)) this.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (this.pts.size >= 2) {
+      const d = this.spread();
+      if (this.pinchDist > 0 && d > 0) this.onPinch?.(this.pinchDist / d);
+      this.pinchDist = d;
+      return;
+    }
     if (e.pointerId !== this.pointerId || this.anchor === null) return;
     let dx = e.clientX - this.anchor;
     if (dx > FULL_PX) {
@@ -75,6 +107,8 @@ export class SteerInput {
   };
 
   private up = (e: PointerEvent) => {
+    this.pts.delete(e.pointerId);
+    if (this.pts.size < 2) this.pinchDist = 0;
     if (e.pointerId !== this.pointerId) return;
     this.pointerId = null;
     this.anchor = null;

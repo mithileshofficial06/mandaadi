@@ -152,8 +152,8 @@ void main() {
   vec2 mg = noiseGrad(p * 7.0 + wd * t * 2.4) * 0.8;
   vec3 Nm = normalize(vec3(-gr.x - mg.x * 0.35 * rough, 1.0, -gr.y - mg.y * 0.35 * rough));
   vec3 Rm = reflect(-V, Nm);
-  float gl = pow(max(dot(Rm, uSunDir), 0.0), 1400.0);
-  col += vec3(1.0, 0.97, 0.9) * gl * 2.6 * smoothstep(0.05, 0.7, pow(sd, 8.0));
+  float gl = pow(max(dot(Rm, uSunDir), 0.0), 700.0);
+  col += vec3(1.0, 0.97, 0.9) * gl * 1.1 * smoothstep(0.1, 0.8, pow(sd, 10.0));
 
   // Gust texture: tiny glinting ripples so gusts read without colour alone.
   if (gust > 0.001) {

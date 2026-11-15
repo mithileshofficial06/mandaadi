@@ -22,6 +22,7 @@ export const hud = {
   muted: signal(false),
   result: signal<RaceResult | null>(null),
   windRel: signal(0),
+  marker: signal<{ x: number; y: number; edge: boolean; angle: number; label: string; dist: number } | null>(null),
   error: signal<string | null>(null),
 };
 

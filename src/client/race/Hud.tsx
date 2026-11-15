@@ -50,6 +50,23 @@ function Icon({ name }: { name: 'sound' | 'mute' | 'map' | 'boat' }) {
   );
 }
 
+/** Where to go next: above the mark when it is on screen, pinned to the edge with an arrow when not. */
+function MarkMarker() {
+  const m = hud.marker.value;
+  if (!m) return null;
+  return (
+    <div class={`marker ${m.edge ? 'is-edge' : ''}`} style={{ transform: `translate(${m.x}px, ${m.y}px)` }} aria-hidden="true">
+      <div class="marker__tag">
+        <span>{m.label}</span>
+        <b>{m.dist} m</b>
+      </div>
+      <svg class="marker__arrow" width="18" height="18" viewBox="0 0 18 18" style={{ transform: `rotate(${m.angle}rad)` }}>
+        <path d="M9 1l6 12-6-3.5L3 13z" fill="currentColor" />
+      </svg>
+    </div>
+  );
+}
+
 export function Hud(props: {
   course: Course;
   day: number;
@@ -153,6 +170,7 @@ export function Hud(props: {
         {hud.gust.value <= -6 && <div class="chip chip--lull">Lull {hud.gust.value}%</div>}
       </div>
 
+      {MarkMarker()}
       {phase === 'countdown' && hud.countdown.value > 0 && (
         <div class="countdown" key={hud.countdown.value} aria-live="assertive">
           {hud.countdown.value}

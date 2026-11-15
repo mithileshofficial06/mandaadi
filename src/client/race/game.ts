@@ -31,14 +31,16 @@ import { landOf } from '../three/world';
 import { fmtTicks, hud } from './hudState';
 
 const RAD = (2 * Math.PI) / ANG;
-/** Sun on the windward side, 38 degrees up: upwind legs sail into the glitter. */
+/** Sun high and off to one side of the wind, so the glitter path crosses the view but never floods it. */
 function sunFor(windFromRad: number): Vector3 {
-  const az = windFromRad + 0.45;
-  const el = (38 * Math.PI) / 180;
+  const az = windFromRad + 1.25;
+  const el = (52 * Math.PI) / 180;
   return new Vector3(Math.cos(el) * Math.sin(az), Math.sin(el), -Math.cos(el) * Math.cos(az)).normalize();
 }
 
 type Snap = { x: number; y: number; h: number };
+/** Start the intro orbit looking at the boat's bow quarter. */
+const s0Angle = (heading: number) => heading + 2.4;
 
 const vibrate = (p: number | number[]) => {
   try {
@@ -149,6 +151,7 @@ export class Race {
     this.input.onFirstSteer = () => {
       if (this.promptStage === 1) this.setPrompt(null);
     };
+    this.input.onPinch = (f) => this.rig.zoomBy(f);
 
     // Debug: ?view=x,y,yawDeg,halfWidth holds the camera still (for screenshots).
     const view = new URLSearchParams(location.search).get('view');
@@ -162,6 +165,7 @@ export class Race {
     this.marks.setActive(0, false);
     this.marks.setLaylines(opts.laylines, windFromRad);
     this.placeCamera();
+    this.rig.setOrbit(!view, s0Angle(this.s.h * RAD));
     this.renderFrame(0);
     hud.phase.value = 'ready';
   }
@@ -203,7 +207,7 @@ export class Race {
   }
 
   zoom(factor: number): void {
-    this.rig.halfWidth = Math.min(60, Math.max(14, this.rig.halfWidth * factor));
+    this.rig.zoomBy(factor);
   }
 
   /** Begin the countdown and race. */
@@ -213,6 +217,7 @@ export class Race {
     this.last = performance.now();
     hud.phase.value = 'countdown';
     hud.countdown.value = 3;
+    this.rig.setOrbit(false);
     if (this.opts.coach) this.setPrompt('Drag left or right to steer', 1);
     sfx.pip();
     this.lastCountdown = 3;
@@ -381,7 +386,54 @@ export class Race {
     hud.banner.value = null;
     this.input.enabled = false;
     sfx.stopMotion();
+    this.rig.setOrbit(true, s.h * RAD + 2.2);
     this.onFinish?.(this.rec.log, s);
+  }
+
+  private tmpV = new Vector3();
+
+  /** Screen marker for the next mark: above it when visible, pinned to the edge when not. */
+  private updateMarker(tgt: { x: number; y: number }, dist: number, s: BoatState): void {
+    const phase = hud.phase.value;
+    if (phase !== 'racing' && phase !== 'countdown') {
+      if (hud.marker.value) hud.marker.value = null;
+      return;
+    }
+    const cam = this.rig.camera;
+    const v = this.tmpV.set(tgt.x, 4, -tgt.y).project(cam);
+    let nx = v.x;
+    let ny = v.y;
+    const behind = v.z > 1;
+    if (behind) {
+      nx = -nx;
+      ny = -ny;
+    }
+    const w = this.canvas.clientWidth || window.innerWidth;
+    const h = this.canvas.clientHeight || window.innerHeight;
+    // Safe area: below the top bar, above the controls.
+    const top = 1 - (2 * 150) / h;
+    const bottom = -1 + (2 * 150) / h;
+    const side = 1 - (2 * 34) / w;
+    const inside = !behind && Math.abs(nx) <= side && ny <= top && ny >= bottom;
+    let edge = false;
+    if (!inside) {
+      edge = true;
+      const cy = (top + bottom) / 2;
+      const dx = nx;
+      const dy = ny - cy;
+      const k = Math.min(Math.abs(dx) > 1e-6 ? side / Math.abs(dx) : Infinity, Math.abs(dy) > 1e-6 ? (top - cy) / Math.abs(dy) : Infinity);
+      nx = dx * k;
+      ny = cy + dy * k;
+    }
+    const label = !s.started ? 'Mark 1' : s.leg < this.course.marks.length ? `Mark ${s.leg + 1}` : 'Finish';
+    hud.marker.value = {
+      x: ((nx + 1) / 2) * w,
+      y: ((1 - ny) / 2) * h,
+      edge,
+      angle: edge ? Math.atan2(nx, ny - (top + bottom) / 2) : Math.PI,
+      label,
+      dist,
+    };
   }
 
   private renderFrame(dt: number, idleTime?: number): void {
@@ -453,6 +505,7 @@ export class Race {
     hud.legArrow.value = aim - camYaw;
     hud.windRel.value = windFrom - camYaw;
     hud.leg.value = !s.started ? 'Start' : s.leg < this.course.marks.length ? `Mark ${s.leg + 1}` : 'Finish';
+    this.updateMarker(tgt, hud.legDist.value, s);
 
     this.renderer.render(this.scene, this.rig.camera);
   }

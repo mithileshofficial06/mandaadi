@@ -339,7 +339,7 @@ export function createBoat(livery: Livery, opts: { ghost?: boolean } = {}): Boat
       const p = TACK.clone().multiplyScalar(1 - u - v).addScaledVector(PEAK, u).addScaledVector(CLEW, v);
       sailPos.push(p.x, p.y, p.z);
       // texture: x across the sail, y down towards the foot
-      sailUv.push(0.08 + 0.84 * (v + u * 0.5), 1 - (p.y - 1.2) / 7.4);
+      sailUv.push(0.08 + 0.84 * (v + u * 0.5), (p.y - 1.2) / 7.4);
       index[i]!.push(n++);
     }
   }
@@ -362,6 +362,17 @@ export function createBoat(livery: Livery, opts: { ghost?: boolean } = {}): Boat
   sailGeo.setIndex(idx);
   sailGeo.computeVertexNormals();
   const sailMat = mkMat({ map: sailTexture(livery.sailNo, ghost), side: DoubleSide });
+  // Read the painted number the right way round from both sides of the sail.
+  sailMat.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace(
+      '#include <map_fragment>',
+      `#ifdef USE_MAP
+        vec2 mUv = vMapUv;
+        if (!gl_FrontFacing) mUv.x = 1.0 - mUv.x;
+        diffuseColor *= texture2D(map, mUv);
+      #endif`
+    );
+  };
   const sail = new Mesh(sailGeo, sailMat);
   rig.add(sail);
   // Barycentric weights for the billow.
