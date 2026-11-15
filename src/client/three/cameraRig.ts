@@ -25,6 +25,10 @@ export class CameraRig {
   private orbitAngle = 0;
   /** Half the visible width at the boat, in metres (zoom). */
   halfWidth = 11.5;
+  /** chase: behind and above; low: near the water, horizon in view; top: overhead tactical. */
+  mode: 'chase' | 'low' | 'top' = 'chase';
+  private pitchNow = 47;
+  private distK = 1;
   reducedMotion = false;
   private shake = 0;
   /** Debug: hold the camera at a fixed view (x, y, yaw) for screenshots. */
@@ -104,12 +108,15 @@ export class CameraRig {
     const hfov = 2 * Math.atan(Math.tan(vfov / 2) * cam.aspect);
 
     // ---- follow pose ----
-    const followDist = this.halfWidth / Math.tan(hfov / 2);
-    const pitch = MathUtils.degToRad(47);
+    const P = this.mode === 'low' ? { p: 14, d: 0.62, lead: 0.55 } : this.mode === 'top' ? { p: 82, d: 1.9, lead: 0.12 } : { p: 47, d: 1, lead: 0.3 };
+    this.pitchNow = ease(this.pitchNow, P.p, 3);
+    this.distK = ease(this.distK, P.d, 3);
+    const followDist = (this.halfWidth / Math.tan(hfov / 2)) * this.distK;
+    const pitch = MathUtils.degToRad(this.pitchNow);
     const sy = Math.sin(this.yaw);
     const cy = Math.cos(this.yaw);
     // Look at a point ahead of the boat so the boat sits in the lower third.
-    const lead = followDist * 0.3;
+    const lead = followDist * (this.mode === 'low' ? 0.9 : this.mode === 'top' ? 0.12 : 0.3);
     const flx = this.tx + sy * lead;
     const fly = this.ty + cy * lead;
     const fpx = flx - sy * Math.cos(pitch) * followDist;
@@ -139,7 +146,7 @@ export class CameraRig {
     let ph = MathUtils.lerp(fph, oph, o);
     let lx = MathUtils.lerp(flx, olx, o);
     let ly = MathUtils.lerp(fly, oly, o);
-    let lh = MathUtils.lerp(0, olh, o);
+    let lh = MathUtils.lerp(this.mode === 'low' ? 1.5 : 0, olh, o);
     px = MathUtils.lerp(px, mcx, m);
     py = MathUtils.lerp(py, mcy - 1, m);
     ph = MathUtils.lerp(ph, mapDist, m);

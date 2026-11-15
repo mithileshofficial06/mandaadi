@@ -32,6 +32,7 @@ import { type Birds, createBirds } from '../three/birds';
 import { type Spray, createSpray } from '../three/spray';
 import { landOf } from '../three/world';
 import { fmtTicks, hud } from './hudState';
+import { Minimap } from './minimap';
 
 const RAD = (2 * Math.PI) / ANG;
 /** Sun high and off to one side of the wind, so the glitter path crosses the view but never floods it. */
@@ -108,6 +109,7 @@ export class Race {
   private sky: Sky;
   private birds: Birds;
   private ring: WindRing;
+  private mini: Minimap | null = null;
   private runTime = 0;
   private runHinted = false;
   private spray: Spray;
@@ -202,6 +204,18 @@ export class Race {
       if (this.promptStage === 1) this.setPrompt(null);
     };
     this.input.onPinch = (f) => this.rig.zoomBy(f);
+    const mc = document.getElementById('minimap') as HTMLCanvasElement | null;
+    if (mc) {
+      this.mini = new Minimap(mc, course);
+      mc.onclick = () => this.toggleMap();
+    }
+    try {
+      const m = localStorage.getItem('mandaadi.cam');
+      if (m === 'low' || m === 'top' || m === 'chase') this.rig.mode = m;
+    } catch {
+      /* ignore */
+    }
+    hud.camMode.value = this.rig.mode;
 
     // Debug: ?view=x,y,yawDeg,halfWidth holds the camera still (for screenshots).
     const view = new URLSearchParams(location.search).get('view');
@@ -256,6 +270,17 @@ export class Race {
     hud.map.value = this.rig.inMap;
   }
 
+  cycleCamera(): void {
+    const order = ['chase', 'low', 'top'] as const;
+    this.rig.mode = order[(order.indexOf(this.rig.mode) + 1) % order.length]!;
+    hud.camMode.value = this.rig.mode;
+    try {
+      localStorage.setItem('mandaadi.cam', this.rig.mode);
+    } catch {
+      /* ignore */
+    }
+  }
+
   zoom(factor: number): void {
     this.rig.zoomBy(factor);
   }
@@ -289,6 +314,8 @@ export class Race {
 
   dispose(): void {
     this.running = false;
+    const mm = document.getElementById('minimap');
+    if (mm) mm.hidden = true;
     cancelAnimationFrame(this.raf);
     this.input.dispose();
     window.removeEventListener('resize', this.resize);
@@ -665,5 +692,39 @@ export class Race {
     hud.windRel.value = windFrom - camYaw;
     hud.leg.value = !s.started ? 'Start' : s.leg < this.course.marks.length ? `Mark ${s.leg + 1}` : 'Finish';
     this.updateMarker(tgt, hud.legDist.value, s);
+    const mc = this.mini;
+    if (mc) {
+      const racing = hud.phase.value === 'racing' || hud.phase.value === 'countdown';
+      const el = document.getElementById('minimap');
+      if (el) el.hidden = !racing;
+      if (racing) {
+        const camYaw2 = Math.atan2(bx - this.rig.camera.position.x, by + this.rig.camera.position.z);
+        mc.draw(
+          {
+            x: bx,
+            y: by,
+            heading: s.h * RAD,
+            speed: (Math.max(0, s.v) * TICK_HZ) / UM_PER_M,
+            yaw: hud.map.value ? 0 : camYaw2,
+            windFrom,
+            noGo: NO_GO * RAD,
+            target: tgt,
+            nextMark: !s.started ? 0 : s.leg < this.course.marks.length ? s.leg : -1,
+            trail: this.route.slice(-60),
+            others: this.otherBoats(),
+            puffs: this.course.puffs.map((p) => {
+              const c = puffCentre(this.course, p, s.tick);
+              return { x: c.x / UM_PER_M, y: c.y / UM_PER_M, r: p.r, k: p.k / 100 };
+            }),
+          },
+          performance.now()
+        );
+      }
+    }
+  }
+
+  /** Positions of the other boats on the water (course metres). */
+  private otherBoats(): Array<{ x: number; y: number }> {
+    return [{ x: this.ghost.x / UM_PER_M, y: this.ghost.y / UM_PER_M }];
   }
 }

@@ -29,7 +29,8 @@ const STATUS: Record<SailStatus, string> = {
 
 const compassName = (a: number) => COMPASS[Math.round(((a % 4096) / 4096) * 8) % 8]!;
 
-type IconName = 'sound' | 'mute' | 'map' | 'boat' | 'help';
+const CAM = { chase: 'Chase', low: 'Low', top: 'Top' } as const;
+type IconName = 'sound' | 'mute' | 'map' | 'boat' | 'help' | 'cam';
 function Icon({ name }: { name: IconName }) {
   const p = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' } as const;
   switch (name) {
@@ -53,6 +54,13 @@ function Icon({ name }: { name: IconName }) {
         <svg {...p} aria-hidden="true">
           <path d="M9 4L3 6.5v13.5L9 17.5l6 2.5 6-2.5V4L15 6.5 9 4z" />
           <path d="M9 4v13.5M15 6.5V20" />
+        </svg>
+      );
+    case 'cam':
+      return (
+        <svg {...p} aria-hidden="true">
+          <path d="M3 8h4l2-3h6l2 3h4v11H3z" />
+          <circle cx="12" cy="13" r="3.5" />
         </svg>
       );
     case 'boat':
@@ -138,6 +146,7 @@ export type HudProps = {
   onStart: () => void;
   onTack: () => void;
   onMap: () => void;
+  onCamera: () => void;
   onAgain: () => void;
   onHelp: () => void;
   onCloseGuide: () => void;
@@ -227,9 +236,16 @@ function TopBar(flash: boolean, toggleSound: () => void, props: HudProps) {
         <button class="iconbtn" onClick={toggleSound} aria-label={hud.muted.value ? 'Sound on' : 'Sound off'}>
           <Icon name={hud.muted.value ? 'mute' : 'sound'} />
         </button>
-        <button class={`iconbtn ${hud.map.value ? 'is-on' : ''}`} onClick={props.onMap} aria-label={hud.map.value ? 'Back to the boat' : 'Show the whole course'}>
-          <Icon name={hud.map.value ? 'boat' : 'map'} />
-        </button>
+        {hud.map.value ? (
+          <button class="iconbtn is-on" onClick={props.onMap} aria-label="Back to the boat">
+            <Icon name="boat" />
+          </button>
+        ) : (
+          <button class="iconbtn iconbtn--cam" onClick={props.onCamera} aria-label={`Camera: ${CAM[hud.camMode.value]}. Tap to change.`}>
+            <Icon name="cam" />
+            <small>{CAM[hud.camMode.value]}</small>
+          </button>
+        )}
       </div>
     </header>
   );

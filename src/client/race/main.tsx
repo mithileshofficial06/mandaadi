@@ -86,6 +86,7 @@ function App() {
       onStart={start}
       onTack={() => race?.tack()}
       onMap={() => race?.toggleMap()}
+      onCamera={() => race?.cycleCamera()}
       onAgain={() => {
         resetHud();
         race = newRace();
