@@ -27,8 +27,18 @@ export function drawChart(cv: HTMLCanvasElement, course: Course, o: ChartOpts = 
   // Fit the marks, lines, islands and routes.
   const xs: number[] = [course.start.a.x, course.start.b.x, course.finish.a.x, course.finish.b.x, ...course.marks.map((m) => m.x)];
   const ys: number[] = [course.start.a.y, course.start.b.y, course.finish.a.y, course.finish.b.y, ...course.marks.map((m) => m.y)];
-  for (const isl of course.islands) for (const p of isl.parts) xs.push(p.x - p.r, p.x + p.r), ys.push(p.y - p.r, p.y + p.r);
-  for (const r of o.routes ?? []) for (const [x, y] of r.pts) xs.push(x), ys.push(y);
+  for (const isl of course.islands) {
+    for (const p of isl.parts) {
+      xs.push(p.x - p.r, p.x + p.r);
+      ys.push(p.y - p.r, p.y + p.r);
+    }
+  }
+  for (const r of o.routes ?? []) {
+    for (const [x, y] of r.pts) {
+      xs.push(x);
+      ys.push(y);
+    }
+  }
   const pad = o.pad ?? 14;
   const minX = Math.min(...xs) - 10;
   const maxX = Math.max(...xs) + 10;
