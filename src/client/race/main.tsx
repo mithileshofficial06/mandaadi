@@ -318,6 +318,11 @@ function App() {
           hud.shared.value = { error: errText(e, 'Could not share your race.') };
         }
       }}
+      onHome={() => {
+        hud.tab.value = 'home';
+        const d = hud.daily.value;
+        pick(d ? d.course : dailyCourse(day));
+      }}
       onDaily={() => {
         const d = hud.daily.value;
         hud.tab.value = 'daily';
@@ -418,6 +423,7 @@ async function boot(): Promise<void> {
     const [t] = await Promise.all([api.today(), loadRivals(), loadSchool()]);
     hud.daily.value = t;
     course = courseById(params.get('course') ?? '') ?? t.course;
+    if (params.get('autopilot') || params.get('course')) hud.tab.value = 'daily';
     if (SCHOOL.some((st) => st.levels.some((l) => l.id === course.id))) hud.tab.value = 'school-level';
     day = t.day;
   } catch {

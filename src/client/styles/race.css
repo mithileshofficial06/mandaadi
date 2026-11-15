@@ -249,3 +249,30 @@ body { font-family: var(--f-ui); color: var(--foam); -webkit-tap-highlight-color
 .exitask__card { width: min(340px, calc(100% - 32px)); padding: 18px; border-radius: 16px; background: var(--panel, #0f2630); border: 1px solid var(--panel-line); }
 .exitask__title { margin: 0 0 6px; font: 700 26px/1.1 var(--f-num); letter-spacing: 0.02em; }
 .exitask__sub { margin: 0 0 14px; font: 400 14px/1.4 system-ui, sans-serif; color: var(--text-dim); }
+
+/* Home screen */
+.hud--home { display: grid; align-items: end; justify-items: center; }
+.home { position: relative; width: min(420px, calc(100% - 24px)); margin: 0 auto calc(14px + var(--safe-b, 0px)); display: grid; gap: 10px; pointer-events: auto; }
+.home__exit { top: -2px; right: 0; }
+.home__brand { text-align: center; margin-bottom: 6px; text-shadow: 0 2px 18px rgba(0,0,0,0.45); }
+.home__mark { width: 96px; height: 52px; }
+.home__mark path { fill: none; stroke: #ff6b1a; stroke-width: 5; stroke-linecap: round; stroke-dasharray: 260; stroke-dashoffset: 260; animation: home-draw 1.4s cubic-bezier(.6,.1,.3,1) .1s forwards; }
+@keyframes home-draw { to { stroke-dashoffset: 0; } }
+.home__name { margin: 0; font: 700 52px/1 var(--f-num); letter-spacing: 0.3em; padding-left: 0.3em; color: #f4f1ea; }
+.home__tag { margin: 4px 0 0; font: 500 16px/1.2 system-ui, sans-serif; letter-spacing: 0.06em; color: #e8f2f2; }
+.homecard { display: grid; gap: 3px; text-align: left; width: 100%; padding: 14px 16px; border-radius: 16px; border: 1px solid var(--panel-line); background: rgba(12,34,44,0.86); backdrop-filter: blur(8px); color: #f4f1ea; cursor: pointer; pointer-events: auto; transition: transform .15s; }
+.homecard:active { transform: scale(0.985); }
+.homecard--today { border-color: rgba(255,107,26,0.6); background: linear-gradient(135deg, rgba(255,107,26,0.22), rgba(12,34,44,0.9) 55%); }
+.homecard__kicker { font: 700 13px/1.2 var(--f-num); letter-spacing: 0.12em; text-transform: uppercase; color: #e8c987; }
+.homecard__title { font: 700 32px/1.05 var(--f-num); letter-spacing: 0.01em; }
+.homecard__title small { font-size: 18px; color: #e8c987; }
+.homecard__line { font: 400 14px/1.35 system-ui, sans-serif; color: var(--text-dim); }
+.homecard__cta { margin-top: 6px; font: 700 17px/1 var(--f-num); letter-spacing: 0.05em; text-transform: uppercase; color: #ff8a47; }
+.homecard--school .homecard__cta { color: #2fb3b0; }
+.home__row { display: flex; gap: 8px; }
+.home__foot { margin: 0; text-align: center; font: 500 12.5px/1.3 system-ui, sans-serif; color: rgba(244,241,234,0.75); text-shadow: 0 1px 6px rgba(0,0,0,0.5); }
+.tab--home { flex: 0 0 40px; font-size: 20px; }
+@media (max-height: 700px) { .home__name { font-size: 40px; } .home__mark { width: 70px; height: 38px; } .homecard__title { font-size: 26px; } }
+@media (prefers-reduced-motion: reduce) { .home__mark path { animation: none; stroke-dashoffset: 0; } }
+.hud--home { background: linear-gradient(to bottom, rgba(6,24,32,0) 25%, rgba(6,24,32,0.5) 55%, rgba(6,24,32,0.82) 100%); }
+.home .home__exit { position: fixed; top: calc(12px + var(--safe-t, 0px)); right: 12px; background: rgba(8,30,40,0.6); color: #f4f1ea; }

@@ -6,6 +6,7 @@ import type { Course } from '../../shared/core/course';
 import { sfx } from '../app/audio';
 import { type Route, drawChart, sideOf } from './chart';
 import { Guide } from './Guide';
+import { Home } from './Home';
 import { LevelIntro, LevelResult, SchoolList, nextLevel, totalStars } from './School';
 import { SCHOOL, findLevel } from '../../shared/content/school';
 import { MEDAL_NAME, type Medal } from '../../shared/core/par';
@@ -225,6 +226,7 @@ export type HudProps = {
   onMap: () => void;
   onCamera: () => void;
   onDaily: () => void;
+  onHome: () => void;
   onSchool: () => void;
   onPickLevel: (id: string) => void;
   onNextLevel: (id: string) => void;
@@ -270,10 +272,13 @@ export function Hud(props: HudProps) {
   const lvl = tab === 'school-level' ? findLevel(course.id) : null;
   const tabs = (
     <div class="tabs" role="tablist">
+      <button class="tab tab--home" onClick={props.onHome} aria-label="Home">
+        ⌂
+      </button>
       <button role="tab" aria-selected={tab === 'daily'} class={`tab ${tab === 'daily' ? 'is-on' : ''}`} onClick={props.onDaily}>
         Today's race
       </button>
-      <button role="tab" aria-selected={tab !== 'daily'} class={`tab ${tab !== 'daily' ? 'is-on' : ''}`} onClick={props.onSchool}>
+      <button role="tab" aria-selected={tab === 'school-list' || tab === 'school-level'} class={`tab ${tab === 'school-list' || tab === 'school-level' ? 'is-on' : ''}`} onClick={props.onSchool}>
         Sailing School <small>{totalStars()} ★</small>
       </button>
     </div>
@@ -302,6 +307,15 @@ export function Hud(props: HudProps) {
       </div>
     </div>
   ) : null;
+
+  if (phase === 'ready' && tab === 'home') {
+    return (
+      <div class="hud hud--ready hud--home">
+        {Home({ onDaily: props.onDaily, onSchool: props.onSchool, onHelp: props.onHelp, onExit: props.onExit })}
+        {guide}
+      </div>
+    );
+  }
 
   if (phase === 'ready' && tab === 'school-list') {
     return (

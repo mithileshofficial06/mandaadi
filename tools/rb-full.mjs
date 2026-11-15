@@ -17,11 +17,14 @@ const open = async () => {
   await p.waitForTimeout(8000);
   const skip = f.getByRole('button', { name: /^Skip$/ });
   if (await skip.count()) { await skip.click(); await p.waitForTimeout(1000); }
+  await p.screenshot({ path: '.mandaadi/full-home.png' });
   return f;
 };
 let f = await open();
 await f.evaluate(() => localStorage.setItem('mandaadi.autopilot', '1'));
 f = await open();
+await f.locator('.homecard--today').click();
+await p.waitForTimeout(1500);
 console.log('start card:', (await f.locator('.daily').textContent().catch(() => '')).slice(0, 120));
 await f.getByRole('button', { name: /Start the race/ }).click();
 await f.locator('.finish').waitFor({ timeout: 200000 });
@@ -30,7 +33,7 @@ await p.screenshot({ path: '.mandaadi/full-daily.png' });
 console.log('daily time:', await f.locator('.finish__time').getAttribute('aria-label'), '| verdict:', await f.locator('.verdict').first().textContent(), '| board rows:', await f.locator('.fleet--board li').count());
 // School level 1-1
 f = await open();
-await f.getByRole('tab', { name: /Sailing School/ }).click();
+await f.locator('.homecard--school').click();
 await p.waitForTimeout(800);
 await f.getByRole('button', { name: /Level 1-1/ }).click();
 await p.waitForTimeout(3000);

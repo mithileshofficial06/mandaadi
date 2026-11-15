@@ -59,7 +59,7 @@ export const hud = {
   board: signal<BoardResponse | null>(null),
   shared: signal<'idle' | 'sending' | 'done' | { error: string }>('idle'),
   /** Start card view: today's race, the School list, or a School level. */
-  tab: signal<'daily' | 'school-list' | 'school-level'>('daily'),
+  tab: signal<'home' | 'daily' | 'school-list' | 'school-level'>('home'),
   /** Best School time per level id (ticks). */
   school: signal<Record<string, number>>({}),
   /** Fastest redditor on the picked School level. */
