@@ -16,7 +16,7 @@ Built for Reddit's Daily Games Hackathon on Devvit Web.
 - **One new course a day:** a 30-day cycle of different courses (each named after a place in the Gulf of Mannar) that repeats every 30 days. Seven kinds of race rotate: windward, shifty, tide race, the cup, storm (with a squall), triangle and light air.
 - **3 attempts** (plus a warm-up attempt on your first day). Your best counts. Restart in the first 10 seconds and the attempt is given back.
 - **Server-verified times:** the game records your inputs, and the server re-sails your race to check the time. Unfinished or impossible runs don't count.
-- **Today's board and medals:** 🥇 beat the Harbourmaster (the reference boat), 🥈 within 15% of it, 🥉 finish. Gold shows in your subreddit flair.
+- **Today's board and medals:** gold for beating the Harbourmaster (the reference boat), silver for finishing within 15% of it, bronze for finishing. Gold shows in your subreddit flair.
 - **Race real redditors:** the day's fastest sailor, your own best and two sailors just ahead of you sail with you as ghost boats with name tags.
 - **The wake map:** every sailor's route is drawn on the post, so the community sees which side paid.
 - **Share your race** to the comments with a postcard of the moment you finished.
